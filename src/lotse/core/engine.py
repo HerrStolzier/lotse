@@ -175,6 +175,15 @@ class Engine:
         if file_path.suffix.lower() in text_extensions:
             return file_path.read_text(errors="replace")[:8000]
 
+        # Try OCR for PDFs and images
+        from lotse.core.ocr import extract_text, is_ocr_candidate
+
+        if is_ocr_candidate(file_path):
+            text = extract_text(file_path)
+            if text:
+                logger.info("OCR extracted %d chars from %s", len(text), file_path.name)
+                return text[:8000]
+
         # For binary files, provide metadata as context
         stat = file_path.stat()
         return (

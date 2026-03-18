@@ -85,6 +85,128 @@ def watch(
     watcher.start()
 
 
+@app.command("import-email")
+def import_email(
+    path: Path = typer.Argument(..., help="Path to .eml or .mbox file"),
+    config: Path | None = typer.Option(None, "--config", "-c"),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+) -> None:
+    """Import and classify emails from .eml or .mbox files."""
+    if verbose:
+        logging.basicConfig(level=logging.DEBUG)
+
+    cfg = _get_config(config)
+
+    from lotse.core.engine import Engine
+    from lotse.inlets.email import parse_eml, parse_mbox, save_attachments
+
+    engine = Engine(cfg)
+
+    if not path.exists():
+        console.print(f"[red]Not found:[/red] {path}")
+        raise typer.Exit(1)
+
+    suffix = path.suffix.lower()
+
+    if suffix == ".eml":
+        emails = [parse_eml(path)]
+    elif suffix == ".mbox":
+        emails = parse_mbox(path)
+    else:
+        console.print(f"[red]Unsupported format:[/red] {suffix} (use .eml or .mbox)")
+        raise typer.Exit(1)
+
+    console.print(f"[blue]Processing {len(emails)} email(s)...[/blue]\n")
+
+    for i, parsed in enumerate(emails, 1):
+        console.print(f"[dim]#{i}[/dim] {parsed.subject}")
+
+        # Classify the email body
+        result = engine.ingest_text(
+            parsed.text_for_classification,
+            name=f"email:{parsed.subject[:50]}",
+        )
+
+        if result.success:
+            console.print(f"  [green]✓[/green] {result.message}")
+        else:
+            console.print(f"  [red]✗[/red] {result.message}")
+
+        # Process attachments
+        if parsed.attachments:
+            att_dir = cfg.inbox_dir / "email_attachments"
+            saved = save_attachments(parsed, att_dir)
+            for att_path in saved:
+                att_result = engine.ingest_file(att_path)
+                if att_result.success:
+                    console.print(f"  [green]  ↳[/green] {att_path.name}: {att_result.message}")
+                else:
+                    console.print(f"  [red]  ↳[/red] {att_path.name}: {att_result.message}")
+
+    console.print(f"\n[green]Done.[/green] Processed {len(emails)} email(s).")
+
+
+@app.command("fetch-email")
+def fetch_email(
+    host: str = typer.Option(..., "--host", help="IMAP server (e.g. imap.gmail.com)"),
+    username: str = typer.Option(..., "--user", "-u", help="Email address"),
+    password: str = typer.Option(
+        ..., "--password", "-p", prompt=True, hide_input=True, help="Password/app password"
+    ),
+    folder: str = typer.Option("INBOX", "--folder", "-f"),
+    limit: int = typer.Option(20, "--limit", "-n"),
+    config: Path | None = typer.Option(None, "--config", "-c"),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+) -> None:
+    """Fetch and classify unread emails from an IMAP server."""
+    if verbose:
+        logging.basicConfig(level=logging.DEBUG)
+
+    cfg = _get_config(config)
+
+    from lotse.core.engine import Engine
+    from lotse.inlets.email import fetch_imap, save_attachments
+
+    engine = Engine(cfg)
+
+    console.print(f"[blue]Connecting to {host}...[/blue]")
+
+    try:
+        emails = fetch_imap(host, username, password, folder=folder, limit=limit)
+    except Exception as e:
+        console.print(f"[red]Connection failed:[/red] {e}")
+        raise typer.Exit(1) from None
+
+    if not emails:
+        console.print("[dim]No unread emails.[/dim]")
+        return
+
+    console.print(f"[blue]Processing {len(emails)} email(s)...[/blue]\n")
+
+    for i, parsed in enumerate(emails, 1):
+        console.print(f"[dim]#{i}[/dim] {parsed.subject}")
+
+        result = engine.ingest_text(
+            parsed.text_for_classification,
+            name=f"email:{parsed.subject[:50]}",
+        )
+
+        if result.success:
+            console.print(f"  [green]✓[/green] {result.message}")
+        else:
+            console.print(f"  [red]✗[/red] {result.message}")
+
+        if parsed.attachments:
+            att_dir = cfg.inbox_dir / "email_attachments"
+            saved = save_attachments(parsed, att_dir)
+            for att_path in saved:
+                att_result = engine.ingest_file(att_path)
+                if att_result.success:
+                    console.print(f"  [green]  ↳[/green] {att_path.name}: {att_result.message}")
+
+    console.print(f"\n[green]Done.[/green] Processed {len(emails)} email(s).")
+
+
 @app.command()
 def search(
     query: str = typer.Argument(..., help="Search query (natural language)"),
@@ -153,7 +275,18 @@ def status(
     console.print(f"[dim]Inbox:[/dim]   {cfg.inbox_dir}")
     console.print(f"[dim]LLM:[/dim]     {cfg.llm.provider}/{cfg.llm.model}")
     console.print(f"[dim]Routes:[/dim]  {len(cfg.routes)} configured")
-    console.print(f"[dim]Embed:[/dim]   {cfg.embeddings.model}\n")
+    console.print(f"[dim]Embed:[/dim]   {cfg.embeddings.model}")
+
+    from lotse.core.ocr import ocr_available
+
+    ocr = ocr_available()
+    if ocr["tesseract_bin"]:
+        console.print("[dim]OCR:[/dim]     [green]available[/green] (Tesseract + PyMuPDF)")
+    elif ocr["pymupdf"]:
+        console.print("[dim]OCR:[/dim]     [yellow]partial[/yellow] (PyMuPDF only, no Tesseract)")
+    else:
+        console.print("[dim]OCR:[/dim]     [dim]not installed[/dim] (pip install lotse[ocr])")
+    console.print()
 
     if not cfg.database.path.exists():
         console.print("[dim]No items processed yet.[/dim]")

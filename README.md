@@ -177,10 +177,10 @@ src/lotse/
 - [x] REST API inlet (FastAPI with auto-docs)
 - [x] Semantic search (FastEmbed + sqlite-vec hybrid search with RRF)
 - [x] Web dashboard (HTMX + Tailwind, no build step)
-- [ ] Browser extension
-- [ ] Email inlet
+- [x] Email inlet (IMAP fetch + .eml/.mbox import)
 - [x] Webhook route plugin (Slack, Discord, generic)
-- [ ] OCR support (Tesseract)
+- [x] OCR support (PyMuPDF + Tesseract)
+- [ ] Browser extension
 
 ## Development
 
