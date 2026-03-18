@@ -1,0 +1,32 @@
+{% if items %}
+<div class="overflow-x-auto fade-in">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="text-left text-gray-500 border-b border-lotse-800">
+                <th class="pb-2 font-medium">Category</th>
+                <th class="pb-2 font-medium">Summary</th>
+                <th class="pb-2 font-medium">Route</th>
+                <th class="pb-2 font-medium text-right">Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr class="border-b border-lotse-800/50 hover:bg-lotse-800/30 transition-colors">
+                <td class="py-2.5">
+                    <span class="inline-flex items-center bg-lotse-800 text-lotse-500 text-xs font-medium px-2 py-0.5 rounded">
+                        {{ item.category }}
+                    </span>
+                </td>
+                <td class="py-2.5 text-gray-300 max-w-md truncate">{{ item.summary or '—' }}</td>
+                <td class="py-2.5 text-gray-500">{{ item.route_name }}</td>
+                <td class="py-2.5 text-gray-500 text-right">{{ item.created_at[:10] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-gray-500 text-sm py-8 text-center fade-in">
+    No items processed yet. Use <code class="text-lotse-500">lotse add</code> or drag a file above.
+</div>
+{% endif %}

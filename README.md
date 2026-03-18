@@ -176,7 +176,7 @@ src/lotse/
 - [x] Filesystem watcher
 - [x] REST API inlet (FastAPI with auto-docs)
 - [x] Semantic search (FastEmbed + sqlite-vec hybrid search with RRF)
-- [ ] Web dashboard
+- [x] Web dashboard (HTMX + Tailwind, no build step)
 - [ ] Browser extension
 - [ ] Email inlet
 - [x] Webhook route plugin (Slack, Discord, generic)

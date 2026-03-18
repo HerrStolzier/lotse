@@ -32,6 +32,19 @@ def create_app(config: LotseConfig | None = None) -> FastAPI:
     )
 
     api.include_router(_build_router())
+
+    # Mount dashboard (HTMX web UI)
+    from lotse.dashboard.routes import router as dashboard_router
+
+    api.include_router(dashboard_router)
+
+    # Redirect root to dashboard
+    from fastapi.responses import RedirectResponse
+
+    @api.get("/", include_in_schema=False)
+    async def root_redirect():
+        return RedirectResponse(url="/dashboard/")
+
     return api
 
 

@@ -1,0 +1,31 @@
+{% if results %}
+<div class="space-y-2 fade-in">
+    <div class="text-sm text-gray-500 mb-2">{{ results | length }} result{{ 's' if results | length != 1 else '' }}</div>
+    {% for item in results %}
+    <div class="bg-lotse-950 rounded-lg border border-lotse-800 p-4 hover:border-lotse-700 transition-colors">
+        <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="inline-flex items-center bg-lotse-800 text-lotse-500 text-xs font-medium px-2 py-0.5 rounded">
+                        {{ item.category }}
+                    </span>
+                    {% if item.confidence is defined %}
+                    <span class="text-xs text-gray-500">{{ "%.0f" | format(item.confidence * 100) }}%</span>
+                    {% endif %}
+                </div>
+                <p class="text-sm text-gray-200 truncate">{{ item.summary or 'No summary' }}</p>
+                <p class="text-xs text-gray-500 mt-1 truncate">{{ item.original_path }}</p>
+            </div>
+            <div class="text-right flex-shrink-0">
+                <div class="text-xs text-gray-500">{{ item.created_at[:10] }}</div>
+                <div class="text-xs text-gray-600 mt-0.5">{{ item.route_name }}</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% elif query %}
+<div class="text-gray-500 text-sm py-4 text-center fade-in">
+    No results for "{{ query }}"
+</div>
+{% endif %}
