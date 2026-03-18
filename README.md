@@ -179,7 +179,7 @@ src/lotse/
 - [ ] Web dashboard
 - [ ] Browser extension
 - [ ] Email inlet
-- [ ] Webhook routes
+- [x] Webhook route plugin (Slack, Discord, generic)
 - [ ] OCR support (Tesseract)
 
 ## Development

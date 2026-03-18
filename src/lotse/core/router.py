@@ -30,27 +30,56 @@ class Router:
         self.routes = routes
         self.review_dir = review_dir
 
+    def find_routes(
+        self, classification: Classification
+    ) -> list[tuple[str, RouteConfig]]:
+        """Find ALL matching routes for a classification (supports fan-out)."""
+        matches = []
+        for name, route in self.routes.items():
+            cat_match = (
+                classification.category in route.categories
+                or not route.categories  # empty = wildcard
+            )
+            if cat_match and classification.confidence >= route.confidence_threshold:
+                matches.append((name, route))
+        return matches
+
     def find_route(self, classification: Classification) -> tuple[str, RouteConfig] | None:
         """Find the best matching route for a classification."""
-        for name, route in self.routes.items():
-            if (
-                classification.category in route.categories
-                and classification.confidence >= route.confidence_threshold
-            ):
-                return name, route
-        return None
+        matches = self.find_routes(classification)
+        return matches[0] if matches else None
 
     def execute(
         self, source_path: Path, classification: Classification
     ) -> RouteResult:
-        """Route a file based on its classification."""
-        match = self.find_route(classification)
+        """Route a file based on its classification.
 
-        if match is None:
+        Primary route (first match with type=folder) moves the file.
+        Additional webhook routes fire in parallel without moving the file.
+        """
+        matches = self.find_routes(classification)
+
+        if not matches:
             return self._route_to_review(source_path, classification)
 
-        route_name, route_config = match
-        return self._execute_route(source_path, route_name, route_config, classification)
+        # Separate folder routes (file-moving) from webhook routes (fire-and-forget)
+        primary_result = None
+        for route_name, route_config in matches:
+            result = self._execute_route(
+                source_path, route_name, route_config, classification
+            )
+            if primary_result is None and route_config.type == "folder":
+                primary_result = result
+            elif route_config.type == "webhook" and not result.success:
+                logger.warning("Webhook %s failed: %s", route_name, result.message)
+
+        # If no folder route matched, use the first result (could be webhook-only)
+        if primary_result is None:
+            primary_result = self._execute_route(
+                source_path, matches[0][0], matches[0][1], classification
+            )
+
+        return primary_result
 
     def _execute_route(
         self,
@@ -62,6 +91,10 @@ class Router:
         """Execute a specific route."""
         if route_config.type == "folder":
             return self._route_to_folder(source_path, route_name, route_config)
+        elif route_config.type == "webhook":
+            return self._route_to_webhook(
+                source_path, route_name, route_config, classification
+            )
         else:
             logger.warning("Unknown route type: %s", route_config.type)
             return RouteResult(
@@ -105,6 +138,64 @@ class Router:
             success=True,
             message=f"Routed to {route_name}: {dest_path}",
         )
+
+    def _route_to_webhook(
+        self,
+        source_path: Path,
+        route_name: str,
+        route_config: RouteConfig,
+        classification: Classification,
+    ) -> RouteResult:
+        """Route item data to a webhook URL (does NOT move the file)."""
+        if not route_config.url:
+            return RouteResult(
+                route_name=route_name,
+                destination="",
+                success=False,
+                message="No URL configured for webhook route",
+            )
+
+        try:
+            from lotse_webhook import send_webhook
+
+            item_data = {
+                "original_path": str(source_path),
+                "category": classification.category,
+                "confidence": classification.confidence,
+                "summary": classification.summary,
+                "tags": classification.tags,
+                "language": classification.language,
+                "route_name": route_name,
+            }
+
+            success = send_webhook(route_config.url, item_data)
+            if success:
+                return RouteResult(
+                    route_name=route_name,
+                    destination=route_config.url,
+                    success=True,
+                    message=f"Webhook delivered: {route_name}",
+                )
+            else:
+                return RouteResult(
+                    route_name=route_name,
+                    destination=route_config.url,
+                    success=False,
+                    message=f"Webhook delivery failed: {route_name}",
+                )
+
+        except ImportError:
+            logger.warning(
+                "Webhook route '%s' configured but lotse-webhook not installed. "
+                "Install with: pip install lotse-webhook",
+                route_name,
+            )
+            return RouteResult(
+                route_name=route_name,
+                destination=route_config.url,
+                success=False,
+                message="lotse-webhook plugin not installed",
+            )
 
     def _route_to_review(
         self, source_path: Path, classification: Classification
