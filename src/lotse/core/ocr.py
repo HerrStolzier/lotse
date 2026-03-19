@@ -55,9 +55,9 @@ def _extract_from_pdf(file_path: Path, languages: str) -> str | None:
     doc = pymupdf.open(str(file_path))  # type: ignore[no-untyped-call]
     pages_text: list[str] = []
 
-    for page_num, page in enumerate(doc):
+    for page_num, page in enumerate(doc):  # type: ignore[arg-type]
         # Step 1: Try native text extraction (fast)
-        text = page.get_text().strip()
+        text: str = page.get_text().strip()
 
         # Step 2: If too little text, try OCR
         if len(text) < MIN_TEXT_THRESHOLD:
@@ -73,7 +73,7 @@ def _extract_from_pdf(file_path: Path, languages: str) -> str | None:
         if text:
             pages_text.append(text)
 
-    doc.close()
+    doc.close()  # type: ignore[no-untyped-call]
     return "\n\n".join(pages_text) if pages_text else ""
 
 
