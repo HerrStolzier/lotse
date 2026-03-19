@@ -76,7 +76,8 @@ class Engine:
         # Step 6: Generate embedding for semantic search
         embedding = self._generate_embedding(content, classification)
 
-        # Step 7: Store in database
+        # Step 7: Store in database (respect privacy setting)
+        store_content = self.config.database.store_content
         self.store.record_item(
             original_path=str(file_path),
             destination=result.destination,
@@ -86,7 +87,7 @@ class Engine:
             tags=classification.tags,
             language=classification.language,
             route_name=result.route_name,
-            content_text=content[:2000],
+            content_text=content[:2000] if store_content else "",
             embedding=embedding,
         )
 
@@ -107,7 +108,7 @@ class Engine:
             tags=classification.tags,
             language=classification.language,
             route_name="__text__",
-            content_text=text[:2000],
+            content_text=text[:2000] if self.config.database.store_content else "",
             embedding=embedding,
         )
 

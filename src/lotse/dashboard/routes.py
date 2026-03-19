@@ -8,15 +8,20 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, Query, UploadFile
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
 
 from lotse import __version__
 
 # Template setup — load from package directory
 _template_dir = Path(__file__).parent / "templates"
+_static_dir = Path(__file__).parent / "static"
 _jinja = Environment(loader=FileSystemLoader(str(_template_dir)), autoescape=True)
 
 router = APIRouter(prefix="/dashboard")
+
+# HTMX served locally for privacy (no CDN request)
+_static_app = StaticFiles(directory=str(_static_dir))
 
 
 def _render(template_name: str, **context) -> HTMLResponse:
@@ -24,6 +29,9 @@ def _render(template_name: str, **context) -> HTMLResponse:
     template = _jinja.get_template(template_name)
     html = template.render(**context)
     return HTMLResponse(html)
+
+
+router.mount("/static", _static_app, name="dashboard-static")
 
 
 @router.get("/", response_class=HTMLResponse)

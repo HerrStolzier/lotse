@@ -142,6 +142,8 @@ def import_email(
                     console.print(f"  [green]  ↳[/green] {att_path.name}: {att_result.message}")
                 else:
                     console.print(f"  [red]  ↳[/red] {att_path.name}: {att_result.message}")
+                # Clean up temp attachment if still present
+                att_path.unlink(missing_ok=True)
 
     console.print(f"\n[green]Done.[/green] Processed {len(emails)} email(s).")
 
@@ -203,6 +205,7 @@ def fetch_email(
                 att_result = engine.ingest_file(att_path)
                 if att_result.success:
                     console.print(f"  [green]  ↳[/green] {att_path.name}: {att_result.message}")
+                att_path.unlink(missing_ok=True)
 
     console.print(f"\n[green]Done.[/green] Processed {len(emails)} email(s).")
 
@@ -415,6 +418,15 @@ def serve(
         console.print("[red]Missing dependency.[/red] Install with:")
         console.print("  pip install lotse[api]")
         raise typer.Exit(1) from None
+
+    if host != "127.0.0.1":
+        console.print(
+            f"\n[yellow bold]Security Warning:[/yellow bold] Binding to "
+            f"[bold]{host}[/bold] exposes the API to your network.\n"
+            "[yellow]All endpoints are unauthenticated. Anyone on your "
+            "network can search, upload, and read your classified documents."
+            "[/yellow]\n"
+        )
 
     cfg = _get_config(config)
 

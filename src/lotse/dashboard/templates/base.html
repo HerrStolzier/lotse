@@ -4,8 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Lotse — Dashboard</title>
+    <!-- Tailwind via CDN (JIT compiler, required for utility classes).
+         Note: This makes a request to cdn.tailwindcss.com on each page load.
+         For offline use, pre-build CSS with: npx tailwindcss -o static/styles.css -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <!-- HTMX served locally — no external request -->
+    <script src="/dashboard/static/htmx.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',

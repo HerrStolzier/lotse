@@ -76,9 +76,17 @@ class Store:
     """SQLite-backed item store with full-text search and optional vector search."""
 
     def __init__(self, db_path: Path) -> None:
+        import contextlib
+        import os
+
         self.db_path = db_path
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
+
+        # Restrict database file to owner-only access
+        if db_path.exists():
+            with contextlib.suppress(OSError):
+                os.chmod(db_path, 0o600)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")

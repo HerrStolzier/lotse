@@ -37,6 +37,7 @@ class DatabaseConfig(BaseModel):
     """Database configuration."""
 
     path: Path = DEFAULT_DATA_DIR / "lotse.db"
+    store_content: bool = True  # Store document text in DB (disable for max privacy)
 
 
 class RouteConfig(BaseModel):
@@ -73,7 +74,12 @@ class LotseConfig(BaseSettings):
         return cls()
 
     def ensure_dirs(self) -> None:
-        """Create required directories if they don't exist."""
-        self.database.path.parent.mkdir(parents=True, exist_ok=True)
-        self.inbox_dir.mkdir(parents=True, exist_ok=True)
-        self.review_dir.mkdir(parents=True, exist_ok=True)
+        """Create required directories with restrictive permissions."""
+        import contextlib
+        import os
+
+        for d in (self.database.path.parent, self.inbox_dir, self.review_dir):
+            d.mkdir(parents=True, exist_ok=True)
+            # Owner-only access for directories holding sensitive data
+            with contextlib.suppress(OSError):
+                os.chmod(d, 0o700)

@@ -346,6 +346,14 @@ def _configure_ollama_new(sys_info: dict) -> dict:
 def _configure_cloud(provider: str, default_model: str) -> dict:
     """Configure a cloud LLM provider."""
     console.print(f"\n[bold]{provider.title()} Configuration[/bold]\n")
+    console.print(Panel(
+        "[yellow bold]Privacy Notice[/yellow bold]\n\n"
+        "When using a cloud provider, document content (up to 4000 chars)\n"
+        "is sent to their servers for classification.\n\n"
+        "This includes text from files, emails, and OCR-extracted content.\n"
+        "For maximum privacy, use Ollama (local, offline).",
+        border_style="yellow",
+    ))
     console.print(
         f"You'll need an API key from {provider.title()}.\n"
         f"Set it as environment variable before running Lotse:\n"

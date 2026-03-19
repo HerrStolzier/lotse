@@ -6,9 +6,13 @@ import json
 import logging
 from dataclasses import dataclass
 
+import litellm
 from litellm import completion
 
 from lotse.core.config import LLMConfig
+
+# Disable LiteLLM telemetry — user data must never leave the system
+litellm.telemetry = False
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +69,8 @@ class Classification:
 class Classifier:
     """Classifies content using an LLM backend."""
 
+    _cloud_warning_shown = False
+
     def __init__(self, config: LLMConfig) -> None:
         self.config = config
         self._model_id = (
@@ -72,6 +78,15 @@ class Classifier:
             if config.provider != "openai"
             else config.model
         )
+
+        # Warn once if using a cloud provider
+        if config.provider not in ("ollama",) and not Classifier._cloud_warning_shown:
+            logger.warning(
+                "Using cloud LLM provider '%s'. Document content will be "
+                "sent to external servers. For privacy, use Ollama (local).",
+                config.provider,
+            )
+            Classifier._cloud_warning_shown = True
 
     def classify(self, content: str, max_chars: int = 4000) -> Classification:
         """Classify text content and return structured result."""

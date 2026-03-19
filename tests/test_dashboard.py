@@ -34,7 +34,7 @@ def test_dashboard_loads(client: TestClient) -> None:
     resp = client.get("/dashboard/")
     assert resp.status_code == 200
     assert "Lotse" in resp.text
-    assert "htmx.org" in resp.text
+    assert "htmx" in resp.text
     assert "tailwindcss" in resp.text
 
 
