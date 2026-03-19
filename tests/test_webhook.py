@@ -11,6 +11,8 @@ from lotse.core.classifier import Classification
 from lotse.core.config import RouteConfig
 from lotse.core.router import Router
 
+lotse_webhook = pytest.importorskip("lotse_webhook", reason="lotse_webhook plugin not installed")
+
 
 @pytest.fixture
 def router_with_webhook(tmp_path: Path) -> Router:

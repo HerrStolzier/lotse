@@ -81,7 +81,10 @@ def watch(
     console.print(f"[blue]Watching:[/blue] {cfg.inbox_dir}")
     console.print("[dim]Press Ctrl+C to stop[/dim]")
 
-    watcher = Watcher(cfg.inbox_dir, engine.ingest_file)
+    def _ingest_and_discard(p: Path) -> None:
+        engine.ingest_file(p)
+
+    watcher = Watcher(cfg.inbox_dir, _ingest_and_discard)
     watcher.start()
 
 
@@ -215,7 +218,9 @@ def search(
     query: str = typer.Argument(..., help="Search query (natural language)"),
     limit: int = typer.Option(20, "--limit", "-n"),
     mode: str = typer.Option(
-        "auto", "--mode", "-m",
+        "auto",
+        "--mode",
+        "-m",
         help="Search mode: 'auto' (hybrid), 'fts' (keyword), 'vec' (semantic)",
     ),
     config: Path | None = typer.Option(None, "--config", "-c"),
@@ -307,8 +312,7 @@ def status(
         )
     else:
         console.print(
-            "[dim]Semantic search:[/dim] [yellow]disabled[/yellow]"
-            " (pip install sqlite-vec)\n"
+            "[dim]Semantic search:[/dim] [yellow]disabled[/yellow] (pip install sqlite-vec)\n"
         )
 
     if s["categories"]:
@@ -336,8 +340,8 @@ def init(
         # Quick mode: write defaults without wizard
         DEFAULT_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         default_config = (
-            '# Lotse Configuration\n'
-            '# https://github.com/HerrStolzier/lotse\n\n'
+            "# Lotse Configuration\n"
+            "# https://github.com/HerrStolzier/lotse\n\n"
             '[llm]\nprovider = "ollama"\nmodel = "qwen3.5:4b"\n'
             'base_url = "http://localhost:11434"\ntemperature = 0.1\n\n'
             '[embeddings]\nmodel = "BAAI/bge-small-en-v1.5"\n\n'
@@ -345,15 +349,15 @@ def init(
             '[routes.archiv]\ntype = "folder"\n'
             'path = "~/Documents/Lotse/Archiv"\n'
             'categories = ["rechnung", "vertrag", "brief", "bescheid"]\n'
-            'confidence_threshold = 0.7\n\n'
+            "confidence_threshold = 0.7\n\n"
             '[routes.artikel]\ntype = "folder"\n'
             'path = "~/Documents/Lotse/Artikel"\n'
             'categories = ["artikel", "paper", "tutorial", "dokumentation"]\n'
-            'confidence_threshold = 0.6\n\n'
+            "confidence_threshold = 0.6\n\n"
             '[routes.code]\ntype = "folder"\n'
             'path = "~/Documents/Lotse/Code"\n'
             'categories = ["code", "config", "script"]\n'
-            'confidence_threshold = 0.6\n'
+            "confidence_threshold = 0.6\n"
         )
         path.write_text(default_config)
         console.print(f"[green]✓[/green] Config created: {path}")

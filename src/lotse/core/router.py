@@ -30,9 +30,7 @@ class Router:
         self.routes = routes
         self.review_dir = review_dir
 
-    def find_routes(
-        self, classification: Classification
-    ) -> list[tuple[str, RouteConfig]]:
+    def find_routes(self, classification: Classification) -> list[tuple[str, RouteConfig]]:
         """Find ALL matching routes for a classification (supports fan-out)."""
         matches = []
         for name, route in self.routes.items():
@@ -49,9 +47,7 @@ class Router:
         matches = self.find_routes(classification)
         return matches[0] if matches else None
 
-    def execute(
-        self, source_path: Path, classification: Classification
-    ) -> RouteResult:
+    def execute(self, source_path: Path, classification: Classification) -> RouteResult:
         """Route a file based on its classification.
 
         Primary route (first match with type=folder) moves the file.
@@ -65,9 +61,7 @@ class Router:
         # Separate folder routes (file-moving) from webhook routes (fire-and-forget)
         primary_result = None
         for route_name, route_config in matches:
-            result = self._execute_route(
-                source_path, route_name, route_config, classification
-            )
+            result = self._execute_route(source_path, route_name, route_config, classification)
             if primary_result is None and route_config.type == "folder":
                 primary_result = result
             elif route_config.type == "webhook" and not result.success:
@@ -92,9 +86,7 @@ class Router:
         if route_config.type == "folder":
             return self._route_to_folder(source_path, route_name, route_config)
         elif route_config.type == "webhook":
-            return self._route_to_webhook(
-                source_path, route_name, route_config, classification
-            )
+            return self._route_to_webhook(source_path, route_name, route_config, classification)
         else:
             logger.warning("Unknown route type: %s", route_config.type)
             return RouteResult(
@@ -197,9 +189,7 @@ class Router:
                 message="lotse-webhook plugin not installed",
             )
 
-    def _route_to_review(
-        self, source_path: Path, classification: Classification
-    ) -> RouteResult:
+    def _route_to_review(self, source_path: Path, classification: Classification) -> RouteResult:
         """Route to review directory when no route matches."""
         self.review_dir.mkdir(parents=True, exist_ok=True)
         dest_path = self.review_dir / source_path.name

@@ -7,6 +7,8 @@ import struct
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from fastembed import TextEmbedding as TextEmbeddingType
+
     from lotse.core.config import EmbeddingConfig
 
 logger = logging.getLogger(__name__)
@@ -20,20 +22,22 @@ class EmbeddingEngine:
 
     def __init__(self, config: EmbeddingConfig) -> None:
         self.config = config
-        self._model = None
+        self._model: TextEmbeddingType | None = None
 
     @property
-    def model(self):
+    def model(self) -> TextEmbeddingType:
         """Lazy-load the embedding model on first use."""
         if self._model is None:
             from fastembed import TextEmbedding
 
-            kwargs = {"model_name": self.config.model}
-            if self.config.cache_dir:
-                kwargs["cache_dir"] = str(self.config.cache_dir)
-
             logger.info("Loading embedding model: %s", self.config.model)
-            self._model = TextEmbedding(**kwargs)
+            if self.config.cache_dir:
+                self._model = TextEmbedding(
+                    model_name=self.config.model,
+                    cache_dir=str(self.config.cache_dir),
+                )
+            else:
+                self._model = TextEmbedding(model_name=self.config.model)
         return self._model
 
     def embed_text(self, text: str) -> bytes:

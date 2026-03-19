@@ -5,8 +5,9 @@ from __future__ import annotations
 import logging
 import mimetypes
 from pathlib import Path
+from typing import Any
 
-from lotse.core.classifier import Classifier
+from lotse.core.classifier import Classification, Classifier
 from lotse.core.config import LotseConfig
 from lotse.core.embeddings import EmbeddingEngine
 from lotse.core.router import Router, RouteResult
@@ -50,9 +51,7 @@ class Engine:
         content = self._extract_content(file_path)
 
         # Step 2: Let plugins pre-process
-        content = self.plugin_manager.hook.pre_classify(
-            content=content, path=str(file_path)
-        )
+        content = self.plugin_manager.hook.pre_classify(content=content, path=str(file_path))
         if isinstance(content, list):
             content = content[-1] if content else ""
 
@@ -66,9 +65,7 @@ class Engine:
         )
 
         # Step 4: Let plugins post-process classification
-        self.plugin_manager.hook.post_classify(
-            classification=classification, path=str(file_path)
-        )
+        self.plugin_manager.hook.post_classify(classification=classification, path=str(file_path))
 
         # Step 5: Route
         result = self.router.execute(file_path, classification)
@@ -117,14 +114,11 @@ class Engine:
             destination="stored",
             success=True,
             message=(
-                f"Text classified: {classification.category}"
-                f" ({classification.confidence:.2f})"
+                f"Text classified: {classification.category} ({classification.confidence:.2f})"
             ),
         )
 
-    def search(
-        self, query: str, limit: int = 20, mode: str = "auto"
-    ) -> list[dict]:
+    def search(self, query: str, limit: int = 20, mode: str = "auto") -> list[dict[str, Any]]:
         """Search stored items. Supports keyword, semantic, and hybrid search."""
         query_embedding = None
         if mode in ("auto", "vec") and self.store.vec_enabled:
@@ -133,15 +127,13 @@ class Engine:
             except Exception as e:
                 logger.warning("Embedding query failed, falling back to FTS: %s", e)
 
-        return self.store.search(
-            query, limit=limit, query_embedding=query_embedding, mode=mode
-        )
+        return self.store.search(query, limit=limit, query_embedding=query_embedding, mode=mode)
 
-    def stats(self) -> dict:
+    def stats(self) -> dict[str, Any]:
         """Get processing statistics."""
         return self.store.stats()
 
-    def _generate_embedding(self, content: str, classification) -> bytes | None:
+    def _generate_embedding(self, content: str, classification: Classification) -> bytes | None:
         """Generate an embedding combining content + classification metadata."""
         if not self.store.vec_enabled:
             return None
@@ -170,8 +162,14 @@ class Engine:
 
         # Common text-based formats without proper MIME
         text_extensions = {
-            ".md", ".json", ".yaml", ".yml", ".toml",
-            ".csv", ".tsv", ".log",
+            ".md",
+            ".json",
+            ".yaml",
+            ".yml",
+            ".toml",
+            ".csv",
+            ".tsv",
+            ".log",
         }
         if file_path.suffix.lower() in text_extensions:
             return file_path.read_text(errors="replace")[:8000]
