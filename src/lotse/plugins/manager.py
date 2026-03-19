@@ -43,8 +43,4 @@ class PluginManager:
 
     def list_plugins(self) -> list[str]:
         """List all registered plugin names."""
-        return [
-            str(name)
-            for plugin, name in self._pm.list_name_plugin()
-            if name
-        ]
+        return [str(name) for plugin, name in self._pm.list_name_plugin() if name]

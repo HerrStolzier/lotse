@@ -115,9 +115,7 @@ def _build_router() -> APIRouter:
         suffix = Path(file.filename or "upload").suffix
         stem = Path(file.filename or "upload").stem
 
-        with tempfile.NamedTemporaryFile(
-            prefix=f"{stem}_", suffix=suffix, delete=False
-        ) as tmp:
+        with tempfile.NamedTemporaryFile(prefix=f"{stem}_", suffix=suffix, delete=False) as tmp:
             content = await file.read()
             tmp.write(content)
             tmp_path = Path(tmp.name)
@@ -168,9 +166,7 @@ def _build_router() -> APIRouter:
         engine = _get_engine()
 
         if mode not in ("fts", "vec", "auto"):
-            raise HTTPException(
-                status_code=422, detail="mode must be 'fts', 'vec', or 'auto'"
-            )
+            raise HTTPException(status_code=422, detail="mode must be 'fts', 'vec', or 'auto'")
 
         results = engine.search(q, limit=limit, mode=mode)
 

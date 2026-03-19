@@ -51,9 +51,7 @@ class Engine:
         content = self._extract_content(file_path)
 
         # Step 2: Let plugins pre-process
-        content = self.plugin_manager.hook.pre_classify(
-            content=content, path=str(file_path)
-        )
+        content = self.plugin_manager.hook.pre_classify(content=content, path=str(file_path))
         if isinstance(content, list):
             content = content[-1] if content else ""
 
@@ -67,9 +65,7 @@ class Engine:
         )
 
         # Step 4: Let plugins post-process classification
-        self.plugin_manager.hook.post_classify(
-            classification=classification, path=str(file_path)
-        )
+        self.plugin_manager.hook.post_classify(classification=classification, path=str(file_path))
 
         # Step 5: Route
         result = self.router.execute(file_path, classification)
@@ -118,14 +114,11 @@ class Engine:
             destination="stored",
             success=True,
             message=(
-                f"Text classified: {classification.category}"
-                f" ({classification.confidence:.2f})"
+                f"Text classified: {classification.category} ({classification.confidence:.2f})"
             ),
         )
 
-    def search(
-        self, query: str, limit: int = 20, mode: str = "auto"
-    ) -> list[dict[str, Any]]:
+    def search(self, query: str, limit: int = 20, mode: str = "auto") -> list[dict[str, Any]]:
         """Search stored items. Supports keyword, semantic, and hybrid search."""
         query_embedding = None
         if mode in ("auto", "vec") and self.store.vec_enabled:
@@ -134,9 +127,7 @@ class Engine:
             except Exception as e:
                 logger.warning("Embedding query failed, falling back to FTS: %s", e)
 
-        return self.store.search(
-            query, limit=limit, query_embedding=query_embedding, mode=mode
-        )
+        return self.store.search(query, limit=limit, query_embedding=query_embedding, mode=mode)
 
     def stats(self) -> dict[str, Any]:
         """Get processing statistics."""
@@ -171,8 +162,14 @@ class Engine:
 
         # Common text-based formats without proper MIME
         text_extensions = {
-            ".md", ".json", ".yaml", ".yml", ".toml",
-            ".csv", ".tsv", ".log",
+            ".md",
+            ".json",
+            ".yaml",
+            ".yml",
+            ".toml",
+            ".csv",
+            ".tsv",
+            ".log",
         }
         if file_path.suffix.lower() in text_extensions:
             return file_path.read_text(errors="replace")[:8000]

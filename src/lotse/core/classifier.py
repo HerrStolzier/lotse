@@ -75,9 +75,7 @@ class Classifier:
     def __init__(self, config: LLMConfig) -> None:
         self.config = config
         self._model_id = (
-            f"{config.provider}/{config.model}"
-            if config.provider != "openai"
-            else config.model
+            f"{config.provider}/{config.model}" if config.provider != "openai" else config.model
         )
 
         # Warn once if using a cloud provider

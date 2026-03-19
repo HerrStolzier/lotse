@@ -87,9 +87,7 @@ async def upload_partial(
     suffix = Path(file.filename or "upload").suffix
     stem = Path(file.filename or "upload").stem
 
-    with tempfile.NamedTemporaryFile(
-        prefix=f"{stem}_", suffix=suffix, delete=False
-    ) as tmp:
+    with tempfile.NamedTemporaryFile(prefix=f"{stem}_", suffix=suffix, delete=False) as tmp:
         content = await file.read()
         tmp.write(content)
         tmp_path = Path(tmp.name)

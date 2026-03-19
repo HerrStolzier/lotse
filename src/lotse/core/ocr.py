@@ -52,10 +52,10 @@ def _extract_from_pdf(file_path: Path, languages: str) -> str | None:
         logger.debug("pymupdf not installed, skipping PDF extraction")
         return None
 
-    doc: Any = pymupdf.open(str(file_path))
-    pages_text = []
+    doc = pymupdf.open(str(file_path))  # type: ignore[no-untyped-call]
+    pages_text: list[str] = []
 
-    for page_num, page in enumerate(doc):  # type: ignore[arg-type]
+    for page_num, page in enumerate(doc):
         # Step 1: Try native text extraction (fast)
         text = page.get_text().strip()
 
@@ -73,7 +73,7 @@ def _extract_from_pdf(file_path: Path, languages: str) -> str | None:
         if text:
             pages_text.append(text)
 
-    doc.close()  # type: ignore[no-untyped-call]
+    doc.close()
     return "\n\n".join(pages_text) if pages_text else ""
 
 
@@ -119,12 +119,14 @@ def ocr_available() -> dict[str, bool]:
 
     try:
         import pymupdf  # noqa: F401
+
         result["pymupdf"] = True
     except ImportError:
         pass
 
     try:
         import pytesseract
+
         result["pytesseract"] = True
         # Check if tesseract binary is available
         pytesseract.get_tesseract_version()

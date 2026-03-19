@@ -253,9 +253,7 @@ class Store:
 
         results = []
         for doc_id in top_ids:
-            item = self._conn.execute(
-                "SELECT * FROM items WHERE id = ?", (doc_id,)
-            ).fetchone()
+            item = self._conn.execute("SELECT * FROM items WHERE id = ?", (doc_id,)).fetchone()
             if item:
                 d = dict(item)
                 d["rrf_score"] = rrf_scores[doc_id]
@@ -281,8 +279,7 @@ class Store:
         """Get processing statistics."""
         total = self._conn.execute("SELECT COUNT(*) FROM items").fetchone()[0]
         categories = self._conn.execute(
-            "SELECT category, COUNT(*) as count FROM items "
-            "GROUP BY category ORDER BY count DESC"
+            "SELECT category, COUNT(*) as count FROM items GROUP BY category ORDER BY count DESC"
         ).fetchall()
         routes = self._conn.execute(
             "SELECT route_name, COUNT(*) as count FROM items "

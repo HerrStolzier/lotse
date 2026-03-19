@@ -33,12 +33,14 @@ MODEL_RECOMMENDATIONS = [
 
 def run_wizard() -> bool:
     """Run the interactive setup wizard. Returns True if setup completed."""
-    console.print(Panel(
-        "[bold]Lotse Setup Wizard[/bold]\n\n"
-        "This will check your system, configure an LLM backend,\n"
-        "and set up your first routes.",
-        border_style="blue",
-    ))
+    console.print(
+        Panel(
+            "[bold]Lotse Setup Wizard[/bold]\n\n"
+            "This will check your system, configure an LLM backend,\n"
+            "and set up your first routes.",
+            border_style="blue",
+        )
+    )
 
     # Step 1: System check
     sys_info = _check_system()
@@ -65,14 +67,16 @@ def run_wizard() -> bool:
     # Step 5: Test classification
     _run_test(llm_config)
 
-    console.print(Panel(
-        "[green bold]Setup complete![/green bold]\n\n"
-        f"Config: {DEFAULT_CONFIG_FILE}\n"
-        "Start with: [bold]lotse add <file>[/bold]\n"
-        "Or watch a folder: [bold]lotse watch[/bold]\n"
-        "Web dashboard: [bold]lotse serve[/bold]",
-        border_style="green",
-    ))
+    console.print(
+        Panel(
+            "[green bold]Setup complete![/green bold]\n\n"
+            f"Config: {DEFAULT_CONFIG_FILE}\n"
+            "Start with: [bold]lotse add <file>[/bold]\n"
+            "Or watch a folder: [bold]lotse watch[/bold]\n"
+            "Web dashboard: [bold]lotse serve[/bold]",
+            border_style="green",
+        )
+    )
     return True
 
 
@@ -118,9 +122,11 @@ def _detect_ram() -> int:
         if system == "Darwin":
             result = subprocess.run(
                 ["sysctl", "-n", "hw.memsize"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
-            return int(result.stdout.strip()) // (1024 ** 3)
+            return int(result.stdout.strip()) // (1024**3)
 
         elif system == "Linux":
             with open("/proc/meminfo") as f:
@@ -131,6 +137,7 @@ def _detect_ram() -> int:
 
         elif system == "Windows":
             import ctypes
+
             kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
             c_ulong = ctypes.c_ulong
 
@@ -150,7 +157,7 @@ def _detect_ram() -> int:
             mem = MEMORYSTATUS()
             mem.dwLength = ctypes.sizeof(MEMORYSTATUS)
             kernel32.GlobalMemoryStatusEx(ctypes.byref(mem))
-            return int(mem.dwTotalPhys) // (1024 ** 3)
+            return int(mem.dwTotalPhys) // (1024**3)
 
     except Exception as e:
         logger.debug("RAM detection failed: %s", e)
@@ -198,8 +205,10 @@ def _print_system_info(info: dict[str, Any]) -> None:
     table.add_row("RAM", f"[{ram_style}]{ram} GB[/{ram_style}]")
 
     ollama_status = (
-        "[green]running[/green]" if info["ollama_running"]
-        else "[yellow]installed but not running[/yellow]" if info["ollama_installed"]
+        "[green]running[/green]"
+        if info["ollama_running"]
+        else "[yellow]installed but not running[/yellow]"
+        if info["ollama_installed"]
         else "[red]not installed[/red]"
     )
     table.add_row("Ollama", ollama_status)
@@ -208,8 +217,7 @@ def _print_system_info(info: dict[str, Any]) -> None:
         table.add_row("Models", ", ".join(info["ollama_models"][:5]))
 
     tesseract = (
-        "[green]installed[/green]" if info["tesseract_installed"]
-        else "[dim]not installed[/dim]"
+        "[green]installed[/green]" if info["tesseract_installed"] else "[dim]not installed[/dim]"
     )
     table.add_row("Tesseract (OCR)", tesseract)
 
@@ -326,8 +334,7 @@ def _configure_ollama_new(sys_info: dict[str, Any]) -> dict[str, Any]:
             console.print(f"[green]Model {name} ready.[/green]")
         except subprocess.TimeoutExpired:
             console.print(
-                "[yellow]Download is taking long. "
-                "It will continue in the background.[/yellow]"
+                "[yellow]Download is taking long. It will continue in the background.[/yellow]"
             )
         except subprocess.CalledProcessError as e:
             console.print(f"[red]Pull failed:[/red] {e}")
@@ -347,14 +354,16 @@ def _configure_ollama_new(sys_info: dict[str, Any]) -> dict[str, Any]:
 def _configure_cloud(provider: str, default_model: str) -> dict[str, Any]:
     """Configure a cloud LLM provider."""
     console.print(f"\n[bold]{provider.title()} Configuration[/bold]\n")
-    console.print(Panel(
-        "[yellow bold]Privacy Notice[/yellow bold]\n\n"
-        "When using a cloud provider, document content (up to 4000 chars)\n"
-        "is sent to their servers for classification.\n\n"
-        "This includes text from files, emails, and OCR-extracted content.\n"
-        "For maximum privacy, use Ollama (local, offline).",
-        border_style="yellow",
-    ))
+    console.print(
+        Panel(
+            "[yellow bold]Privacy Notice[/yellow bold]\n\n"
+            "When using a cloud provider, document content (up to 4000 chars)\n"
+            "is sent to their servers for classification.\n\n"
+            "This includes text from files, emails, and OCR-extracted content.\n"
+            "For maximum privacy, use Ollama (local, offline).",
+            border_style="yellow",
+        )
+    )
     console.print(
         f"You'll need an API key from {provider.title()}.\n"
         f"Set it as environment variable before running Lotse:\n"
@@ -391,8 +400,11 @@ def _configure_routes() -> dict[str, Any]:
     # Default suggestions
     suggestions = [
         ("archiv", "Invoices, contracts, letters", ["rechnung", "vertrag", "brief", "bescheid"]),
-        ("artikel", "Articles, tutorials, papers",
-         ["artikel", "paper", "tutorial", "dokumentation"]),
+        (
+            "artikel",
+            "Articles, tutorials, papers",
+            ["artikel", "paper", "tutorial", "dokumentation"],
+        ),
         ("code", "Code snippets, configs", ["code", "config", "script"]),
     ]
 
@@ -443,27 +455,31 @@ def _write_config(llm_config: dict[str, Any], routes: dict[str, Any]) -> None:
     if llm_config.get("base_url"):
         lines.append(f'base_url = "{llm_config["base_url"]}"')
 
-    lines.extend([
-        "temperature = 0.1",
-        "",
-        "[embeddings]",
-        'model = "BAAI/bge-small-en-v1.5"',
-        "",
-        "[database]",
-        'path = "~/.local/share/lotse/lotse.db"',
-        "",
-    ])
+    lines.extend(
+        [
+            "temperature = 0.1",
+            "",
+            "[embeddings]",
+            'model = "BAAI/bge-small-en-v1.5"',
+            "",
+            "[database]",
+            'path = "~/.local/share/lotse/lotse.db"',
+            "",
+        ]
+    )
 
     for name, route_data in routes.items():
         cats = ", ".join(f'"{c}"' for c in route_data["categories"])
-        lines.extend([
-            f"[routes.{name}]",
-            'type = "folder"',
-            f'path = "{route_data["path"]}"',
-            f"categories = [{cats}]",
-            "confidence_threshold = 0.7",
-            "",
-        ])
+        lines.extend(
+            [
+                f"[routes.{name}]",
+                'type = "folder"',
+                f'path = "{route_data["path"]}"',
+                f"categories = [{cats}]",
+                "confidence_threshold = 0.7",
+                "",
+            ]
+        )
 
     DEFAULT_CONFIG_FILE.write_text("\n".join(lines) + "\n")
     console.print(f"\n[green]Config written:[/green] {DEFAULT_CONFIG_FILE}")

@@ -127,9 +127,7 @@ def save_attachments(parsed_email: ParsedEmail, dest_dir: Path) -> list[Path]:
     for att in parsed_email.attachments:
         filename = att.get("filename", "attachment")
         # Sanitize filename
-        safe_name = "".join(
-            c if c.isalnum() or c in ".-_" else "_" for c in filename
-        )
+        safe_name = "".join(c if c.isalnum() or c in ".-_" else "_" for c in filename)
         if not safe_name:
             safe_name = "attachment"
 
@@ -218,12 +216,14 @@ def _get_attachments(msg: EmailMessage | mboxMessage) -> list[dict[str, Any]]:
 
         payload = part.get_payload(decode=True)
         if payload:
-            attachments.append({
-                "filename": filename,
-                "content_type": part.get_content_type(),
-                "data": payload,
-                "size": len(payload),
-            })
+            attachments.append(
+                {
+                    "filename": filename,
+                    "content_type": part.get_content_type(),
+                    "data": payload,
+                    "size": len(payload),
+                }
+            )
 
     return attachments
 
@@ -238,9 +238,7 @@ def _strip_html(html: str) -> str:
             self.parts: list[str] = []
             self._skip = False
 
-        def handle_starttag(
-            self, tag: str, attrs: list[tuple[str, str | None]]
-        ) -> None:
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
             if tag in ("script", "style"):
                 self._skip = True
 
