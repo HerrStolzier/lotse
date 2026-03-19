@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from fastembed import TextEmbedding as TextEmbeddingType
+
     from lotse.core.config import EmbeddingConfig
 
 logger = logging.getLogger(__name__)
