@@ -50,12 +50,21 @@ class RouteConfig(BaseModel):
     confidence_threshold: float = 0.7
 
 
+class AuditConfig(BaseModel):
+    """Audit system configuration."""
+
+    similarity_threshold: float = 0.92  # Embedding similarity for duplicate detection
+    confidence_threshold: float = 0.6  # Warn below this confidence
+    reclassify_sample: int = 10  # How many items to re-classify per audit
+
+
 class LotseConfig(BaseSettings):
     """Root configuration for Lotse."""
 
     llm: LLMConfig = Field(default_factory=LLMConfig)
     embeddings: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
+    audit: AuditConfig = Field(default_factory=AuditConfig)
     routes: dict[str, RouteConfig] = Field(default_factory=dict)
     inbox_dir: Path = DEFAULT_DATA_DIR / "inbox"
     review_dir: Path = DEFAULT_DATA_DIR / "review"

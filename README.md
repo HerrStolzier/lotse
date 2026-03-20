@@ -180,6 +180,7 @@ src/lotse/
 - [x] Email inlet (IMAP fetch + .eml/.mbox import)
 - [x] Webhook route plugin (Slack, Discord, generic)
 - [x] OCR support (PyMuPDF + Tesseract)
+- [x] Self-audit system (duplicates, misclassifications, orphaned files)
 - [ ] Browser extension
 
 ## Development

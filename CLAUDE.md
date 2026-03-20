@@ -38,7 +38,8 @@ src/lotse/
 │   ├── router.py          # Category-based routing with fan-out (folder + webhook)
 │   ├── engine.py          # Pipeline orchestrator: extract → classify → embed → route → store
 │   ├── embeddings.py      # FastEmbed wrapper (BAAI/bge-small-en-v1.5, 384-dim)
-│   └── ocr.py             # PyMuPDF native + Tesseract fallback
+│   ├── ocr.py             # PyMuPDF native + Tesseract fallback
+│   └── auditor.py         # Self-audit: duplicates, misclassifications, orphaned files
 ├── db/
 │   └── store.py           # SQLite + FTS5 + sqlite-vec (hybrid search with RRF)
 ├── dashboard/
@@ -64,6 +65,8 @@ plugins/lotse-webhook/     # First-party plugin: webhook routes (Slack, Discord,
 - **Router supports fan-out**: One classification can match multiple routes. Folder routes move the file, webhook routes fire without moving. Empty `categories = []` acts as wildcard.
 - **OCR is two-stage**: PyMuPDF tries native text extraction first. Only if <50 chars found, Tesseract runs at 300 DPI. This avoids OCR overhead for 90% of PDFs.
 - **Dashboard uses HTMX partials**: Server returns HTML fragments, not JSON. Routes under `/dashboard/partials/*`. No JS build step.
+- **sqlite-vec MATCH doesn't support WHERE filters**: Duplicate detection fetches extra rows and filters self-matches in Python, not SQL.
+- **Auditor reads config thresholds**: `[audit]` section in TOML controls similarity_threshold, confidence_threshold, reclassify_sample.
 - **Plugin tests can't run in same pytest invocation** as core tests due to `tests/` package name collision. Use separate `--rootdir`.
 
 ## Optional Dependencies
