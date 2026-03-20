@@ -9,8 +9,9 @@ Universal capture → classify → route platform. Python 3.11+, local-first.
 pip install -e ".[dev,api,ocr]"
 
 # Run tests
-pytest                    # all 60 tests
+pytest                    # all 78 tests
 pytest tests/test_api.py  # specific module
+pytest -m smoke           # smoke tests only (require Ollama)
 
 # Lint + format
 ruff check src/           # lint
@@ -23,6 +24,13 @@ mypy src/lotse/ --ignore-missing-imports
 # Start API + dashboard
 lotse serve               # http://127.0.0.1:8790/dashboard/
 
+# Audit routing decisions
+lotse audit               # report only
+lotse audit --fix         # interactive fix mode
+
+# System health
+lotse doctor              # check Ollama, RAM, model availability
+
 # Plugin tests (separate rootdir to avoid import conflicts)
 pytest --rootdir=plugins/lotse-webhook --override-ini="testpaths=plugins/lotse-webhook/tests" plugins/lotse-webhook/tests/
 ```
@@ -31,7 +39,8 @@ pytest --rootdir=plugins/lotse-webhook --override-ini="testpaths=plugins/lotse-w
 
 ```
 src/lotse/
-├── cli.py                 # Typer CLI (10 commands: add, watch, search, status, init, serve, plugins, import-email, fetch-email)
+├── cli.py                 # Typer CLI (11 commands)
+├── setup_wizard.py        # Interactive first-run setup (system detection, model selection)
 ├── core/
 │   ├── config.py          # TOML config via pydantic-settings (XDG paths)
 │   ├── classifier.py      # LLM classification via LiteLLM (provider-agnostic)
@@ -39,11 +48,12 @@ src/lotse/
 │   ├── engine.py          # Pipeline orchestrator: extract → classify → embed → route → store
 │   ├── embeddings.py      # FastEmbed wrapper (BAAI/bge-small-en-v1.5, 384-dim)
 │   ├── ocr.py             # PyMuPDF native + Tesseract fallback
-│   └── auditor.py         # Self-audit: duplicates, misclassifications, orphaned files
+│   └── auditor.py         # Self-audit: duplicates, misclassifications, orphaned files, missing destinations
 ├── db/
 │   └── store.py           # SQLite + FTS5 + sqlite-vec (hybrid search with RRF)
 ├── dashboard/
 │   ├── routes.py          # FastAPI routes serving Jinja2/HTMX partials
+│   ├── static/            # HTMX bundled locally (no CDN)
 │   └── templates/         # base.html + partials/ (stats, search, recent, upload)
 ├── inlets/
 │   ├── api.py             # FastAPI REST endpoints + dashboard mount
@@ -60,15 +70,26 @@ plugins/lotse-webhook/     # First-party plugin: webhook routes (Slack, Discord,
 
 - **LLM calls go through LiteLLM** (`core/classifier.py`). Ollama uses `ollama_chat/` prefix (NOT `ollama/`) — the plain prefix uses legacy `/api/generate` which drops message content. Needs explicit `api_base`.
 - **Qwen 3.5 has "thinking mode"** that adds ~100s overhead per call. Use Qwen 2.5 for classification (no thinking, fast, accurate). Models below 7B tend to misclassify.
+- **Pluggy hook returns are lists, not values**: `hook.pre_classify()` returns `[]` when no plugin implements it. Original content must be preserved when the list is empty — otherwise the LLM receives empty input and hallucinates. This was a critical bug (March 2026).
 - **Embedding model is lazy-loaded** (`engine.py:embedder` property). FastEmbed loads ~33MB model on first use — don't import at module level.
 - **SQLite connection uses `check_same_thread=False`** — required for FastAPI async endpoints. WAL mode protects concurrent writes.
 - **sqlite-vec loads as extension** (`store.py:_load_sqlite_vec`). If not installed, vector search degrades gracefully to FTS-only.
+- **sqlite-vec MATCH doesn't support WHERE filters**: Duplicate detection fetches extra rows and filters self-matches in Python, not SQL.
 - **Router supports fan-out**: One classification can match multiple routes. Folder routes move the file, webhook routes fire without moving. Empty `categories = []` acts as wildcard.
 - **OCR is two-stage**: PyMuPDF tries native text extraction first. Only if <50 chars found, Tesseract runs at 300 DPI. This avoids OCR overhead for 90% of PDFs.
-- **Dashboard uses HTMX partials**: Server returns HTML fragments, not JSON. Routes under `/dashboard/partials/*`. No JS build step.
-- **sqlite-vec MATCH doesn't support WHERE filters**: Duplicate detection fetches extra rows and filters self-matches in Python, not SQL.
-- **Auditor reads config thresholds**: `[audit]` section in TOML controls similarity_threshold, confidence_threshold, reclassify_sample.
+- **Dashboard uses HTMX partials**: Server returns HTML fragments, not JSON. Routes under `/dashboard/partials/*`. No JS build step. HTMX served locally, Tailwind via CDN.
 - **Plugin tests can't run in same pytest invocation** as core tests due to `tests/` package name collision. Use separate `--rootdir`.
+
+## Config
+
+TOML at `~/.config/lotse/config.toml`. Run `lotse init` for interactive wizard, `lotse init --quick` for defaults.
+
+Key sections:
+- `[llm]` — provider, model, base_url, temperature
+- `[embeddings]` — model name, cache_dir
+- `[database]` — path, store_content (disable for max privacy)
+- `[audit]` — similarity_threshold (0.92), confidence_threshold (0.6), reclassify_sample (10)
+- `[routes.*]` — type (folder/webhook), path/url, categories, confidence_threshold
 
 ## Optional Dependencies
 
@@ -78,16 +99,13 @@ plugins/lotse-webhook/     # First-party plugin: webhook routes (Slack, Discord,
 | `ocr` | PDF/image text extraction | `pip install lotse[ocr]` + `brew install tesseract` |
 | `dev` | Testing + linting | `pip install lotse[dev]` |
 
-## Config
-
-TOML at `~/.config/lotse/config.toml`. Key sections: `[llm]`, `[embeddings]`, `[database]`, `[routes.*]`. Run `lotse init` to generate defaults.
-
-Route types: `folder` (moves file) and `webhook` (POST to URL, requires lotse-webhook plugin).
-
 ## Ruff
 
 B008 is ignored globally — `typer.Argument()`/`typer.Option()` in function defaults is the standard Typer pattern, not a bug.
 
 ## Testing
 
-Tests use `unittest.mock.patch` for LLM calls (mock `lotse.core.classifier.completion`). API tests use `fastapi.testclient.TestClient`. Store tests use `tmp_path` fixture for disposable SQLite DBs.
+- Unit tests mock LLM calls via `patch("lotse.core.classifier.completion")`.
+- API tests use `fastapi.testclient.TestClient`.
+- Store/auditor tests use `tmp_path` fixture for disposable SQLite DBs.
+- **Mock gap warning**: Unit tests with mocked LLM don't test the real integration path (LiteLLM → Ollama). Always verify with at least one smoke test using a real LLM. The pluggy empty-list bug was invisible to 78 green unit tests.
