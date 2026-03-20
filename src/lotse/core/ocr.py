@@ -135,6 +135,7 @@ def ocr_available() -> dict[str, bool]:
     except ImportError:
         pass
     except Exception:
-        pass
+        # tesseract binary not found or not working
+        logger.debug("Tesseract binary check failed")
 
     return result

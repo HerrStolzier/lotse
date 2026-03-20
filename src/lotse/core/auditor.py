@@ -116,7 +116,8 @@ class Auditor:
                     "SELECT embedding FROM items_vec WHERE rowid = ?",
                     (item_id,),
                 ).fetchone()
-            except Exception:
+            except Exception as e:
+                logger.debug("Failed to read embedding for item %d: %s", item_id, e)
                 continue
 
             if not vec_row:
@@ -134,7 +135,8 @@ class Auditor:
                        LIMIT 6""",
                     (embedding,),
                 ).fetchall()
-            except Exception:
+            except Exception as e:
+                logger.debug("Vector search failed for item %d: %s", item_id, e)
                 continue
 
             for row in similar:
@@ -279,7 +281,8 @@ class Auditor:
         for item in candidates:
             try:
                 new_result = classifier.classify(item["content_text"])
-            except Exception:
+            except Exception as e:
+                logger.debug("Re-classification failed for item %d: %s", item["id"], e)
                 continue
 
             old_category = item.get("category", "")
