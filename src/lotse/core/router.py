@@ -210,9 +210,41 @@ class Router:
             classification.confidence,
         )
 
+        reason = self._explain_no_match(classification)
         return RouteResult(
             route_name="__review__",
             destination=str(dest_path),
             success=True,
-            message=f"No matching route — moved to review: {dest_path}",
+            message=f"Moved to review: {reason}",
+        )
+
+    def _explain_no_match(self, classification: Classification) -> str:
+        """Explain why no route matched — helps users understand review items."""
+        category = classification.category
+        confidence = classification.confidence
+
+        # Check if any route has this category
+        routes_with_category = [
+            (name, r) for name, r in self.routes.items()
+            if category in r.categories or not r.categories
+        ]
+
+        if not routes_with_category:
+            configured = sorted({
+                cat for r in self.routes.values() for cat in r.categories
+            })
+            return (
+                f"no route configured for category '{category}'. "
+                f"Configured: {', '.join(configured)}"
+            )
+
+        # Category exists but confidence too low
+        thresholds = [
+            (name, r.confidence_threshold)
+            for name, r in routes_with_category
+        ]
+        best_name, best_threshold = min(thresholds, key=lambda x: x[1])
+        return (
+            f"confidence too low for '{category}' "
+            f"({confidence:.0%} < {best_threshold:.0%} required by '{best_name}')"
         )
