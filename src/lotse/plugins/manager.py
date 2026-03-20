@@ -42,5 +42,15 @@ class PluginManager:
         self._pm.register(plugin, name=name)
 
     def list_plugins(self) -> list[str]:
-        """List all registered plugin names."""
-        return [str(name) for plugin, name in self._pm.list_name_plugin() if name]
+        """List all registered plugin names (clean, human-readable)."""
+        names = []
+        for item1, item2 in self._pm.list_name_plugin():
+            # pluggy returns (plugin, name) or (name, plugin) depending on version
+            # Detect which is the string name
+            if isinstance(item2, str):
+                names.append(item2)
+            elif isinstance(item1, str):
+                names.append(item1)
+            elif hasattr(item1, "__name__"):
+                names.append(item1.__name__.replace("lotse_", ""))
+        return names

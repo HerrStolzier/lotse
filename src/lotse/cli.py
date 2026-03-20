@@ -278,7 +278,8 @@ def status(
     console.print(f"\n[bold]Lotse[/bold] v{__version__}\n")
 
     # Config info
-    console.print(f"[dim]Config:[/dim]  {DEFAULT_CONFIG_FILE}")
+    config_display = config or DEFAULT_CONFIG_FILE
+    console.print(f"[dim]Config:[/dim]  {config_display}")
     console.print(f"[dim]Database:[/dim] {cfg.database.path}")
     console.print(f"[dim]Inbox:[/dim]   {cfg.inbox_dir}")
     console.print(f"[dim]LLM:[/dim]     {cfg.llm.provider}/{cfg.llm.model}")
@@ -372,7 +373,9 @@ def init(
 
 
 @app.command()
-def doctor() -> None:
+def doctor(
+    config: Path | None = typer.Option(None, "--config", "-c"),
+) -> None:
     """Check system health and LLM availability."""
     from lotse.setup_wizard import _check_system, _print_system_info
 
@@ -380,9 +383,10 @@ def doctor() -> None:
     _print_system_info(sys_info)
 
     # Check config
-    if DEFAULT_CONFIG_FILE.exists():
-        console.print(f"[green]Config:[/green] {DEFAULT_CONFIG_FILE}")
-        cfg = _get_config()
+    config_path = config or DEFAULT_CONFIG_FILE
+    if config_path.exists():
+        console.print(f"[green]Config:[/green] {config_path}")
+        cfg = _get_config(config)
 
         # Check LLM connectivity
         console.print(f"[dim]LLM:[/dim] {cfg.llm.provider}/{cfg.llm.model}")

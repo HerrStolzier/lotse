@@ -27,27 +27,39 @@ CREATE TABLE IF NOT EXISTS items (
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
-    original_path, category, summary, tags,
+    original_path, category, summary, tags, content_text,
     content='items',
     content_rowid='id'
 );
 
 -- Triggers to keep FTS in sync
 CREATE TRIGGER IF NOT EXISTS items_ai AFTER INSERT ON items BEGIN
-    INSERT INTO items_fts(rowid, original_path, category, summary, tags)
-    VALUES (new.id, new.original_path, new.category, new.summary, new.tags);
+    INSERT INTO items_fts(rowid, original_path, category, summary, tags, content_text)
+    VALUES (new.id, new.original_path, new.category, new.summary, new.tags, new.content_text);
 END;
 
 CREATE TRIGGER IF NOT EXISTS items_ad AFTER DELETE ON items BEGIN
-    INSERT INTO items_fts(items_fts, rowid, original_path, category, summary, tags)
-    VALUES ('delete', old.id, old.original_path, old.category, old.summary, old.tags);
+    INSERT INTO items_fts(
+        items_fts, rowid, original_path, category, summary, tags, content_text
+    ) VALUES (
+        'delete', old.id, old.original_path, old.category,
+        old.summary, old.tags, old.content_text
+    );
 END;
 
 CREATE TRIGGER IF NOT EXISTS items_au AFTER UPDATE ON items BEGIN
-    INSERT INTO items_fts(items_fts, rowid, original_path, category, summary, tags)
-    VALUES ('delete', old.id, old.original_path, old.category, old.summary, old.tags);
-    INSERT INTO items_fts(rowid, original_path, category, summary, tags)
-    VALUES (new.id, new.original_path, new.category, new.summary, new.tags);
+    INSERT INTO items_fts(
+        items_fts, rowid, original_path, category, summary, tags, content_text
+    ) VALUES (
+        'delete', old.id, old.original_path, old.category,
+        old.summary, old.tags, old.content_text
+    );
+    INSERT INTO items_fts(
+        rowid, original_path, category, summary, tags, content_text
+    ) VALUES (
+        new.id, new.original_path, new.category,
+        new.summary, new.tags, new.content_text
+    );
 END;
 """
 
@@ -91,6 +103,7 @@ class Store:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
+        self._migrate_fts_if_needed()
         self._conn.executescript(SCHEMA)
 
         # Try to enable vector search
@@ -100,6 +113,24 @@ class Store:
             logger.info("Vector search enabled (sqlite-vec)")
         else:
             logger.info("Vector search disabled (install sqlite-vec for semantic search)")
+
+    def _migrate_fts_if_needed(self) -> None:
+        """Recreate FTS table if schema has changed (e.g., content_text added)."""
+        try:
+            # Check if items_fts exists and has the right columns
+            row = self._conn.execute(
+                "SELECT sql FROM sqlite_master WHERE name = 'items_fts'"
+            ).fetchone()
+            if row and "content_text" not in (row[0] or ""):
+                logger.info("Migrating FTS index to include content_text")
+                self._conn.executescript("""
+                    DROP TRIGGER IF EXISTS items_ai;
+                    DROP TRIGGER IF EXISTS items_ad;
+                    DROP TRIGGER IF EXISTS items_au;
+                    DROP TABLE IF EXISTS items_fts;
+                """)
+        except Exception as e:
+            logger.debug("FTS migration check: %s", e)
 
     @property
     def vec_enabled(self) -> bool:

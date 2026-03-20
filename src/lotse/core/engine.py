@@ -50,6 +50,16 @@ class Engine:
         # Step 1: Extract content
         content = self._extract_content(file_path)
 
+        # Skip empty files — LLM will hallucinate on empty input
+        if not content.strip():
+            logger.warning("Skipping empty file: %s", file_path.name)
+            return RouteResult(
+                route_name="__error__",
+                destination="",
+                success=False,
+                message=f"Empty file: {file_path.name}",
+            )
+
         # Step 2: Let plugins pre-process (pluggy returns list of hook results)
         hook_results = self.plugin_manager.hook.pre_classify(
             content=content, path=str(file_path)
