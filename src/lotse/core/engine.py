@@ -50,10 +50,13 @@ class Engine:
         # Step 1: Extract content
         content = self._extract_content(file_path)
 
-        # Step 2: Let plugins pre-process
-        content = self.plugin_manager.hook.pre_classify(content=content, path=str(file_path))
-        if isinstance(content, list):
-            content = content[-1] if content else ""
+        # Step 2: Let plugins pre-process (pluggy returns list of hook results)
+        hook_results = self.plugin_manager.hook.pre_classify(
+            content=content, path=str(file_path)
+        )
+        if hook_results:
+            # Use the last plugin's transformed content
+            content = hook_results[-1]
 
         # Step 3: Classify
         classification = self.classifier.classify(content)

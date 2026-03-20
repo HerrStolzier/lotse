@@ -342,7 +342,7 @@ def init(
         default_config = (
             "# Lotse Configuration\n"
             "# https://github.com/HerrStolzier/lotse\n\n"
-            '[llm]\nprovider = "ollama"\nmodel = "qwen3.5:4b"\n'
+            '[llm]\nprovider = "ollama"\nmodel = "qwen2.5:7b"\n'
             'base_url = "http://localhost:11434"\ntemperature = 0.1\n\n'
             '[embeddings]\nmodel = "BAAI/bge-small-en-v1.5"\n\n'
             '[database]\npath = "~/.local/share/lotse/lotse.db"\n\n'

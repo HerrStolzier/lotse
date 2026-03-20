@@ -18,16 +18,18 @@ from lotse.core.config import DEFAULT_CONFIG_DIR, DEFAULT_CONFIG_FILE
 logger = logging.getLogger(__name__)
 console = Console()
 
-# Model recommendations based on available RAM
-# Qwen 3.5 is preferred: strong multilingual (100+ languages incl. German),
-# native JSON schema mode, and better classification per parameter than Mistral.
+# Model recommendations based on available RAM.
+# Qwen 2.5 is preferred over 3.5 for classification tasks:
+# - Qwen 3.5 has "thinking mode" which adds ~100s overhead per call
+# - Qwen 2.5 is direct, fast, and excellent at structured JSON output
+# - Models below 7B tend to misclassify (everything → same category)
+# - Minimum 7B recommended for reliable German/English classification
 MODEL_RECOMMENDATIONS = [
     # (min_ram_gb, model_id, display_name, size_note)
-    (24, "qwen3.5:27b", "Qwen 3.5 27B", "~14 GB, best quality for classification"),
-    (16, "qwen3.5:9b", "Qwen 3.5 9B", "~5.5 GB, best balance quality/speed"),
-    (8, "qwen3.5:4b", "Qwen 3.5 4B", "~4.5 GB, good quality, fast"),
-    (4, "qwen3.5:2b", "Qwen 3.5 2B", "~3 GB, compact but capable"),
-    (4, "qwen3.5:0.8b", "Qwen 3.5 0.8B", "~1.5 GB, minimal system"),
+    (16, "qwen2.5:14b", "Qwen 2.5 14B", "~9 GB, best quality"),
+    (8, "qwen2.5:7b", "Qwen 2.5 7B", "~4.7 GB, recommended default"),
+    (4, "qwen2.5:3b", "Qwen 2.5 3B", "~2 GB, fast but less accurate"),
+    (4, "qwen2.5:1.5b", "Qwen 2.5 1.5B", "~1 GB, minimal (may misclassify)"),
 ]
 
 

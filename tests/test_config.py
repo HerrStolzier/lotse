@@ -8,7 +8,7 @@ from lotse.core.config import LotseConfig
 def test_default_config() -> None:
     config = LotseConfig()
     assert config.llm.provider == "ollama"
-    assert config.llm.model == "qwen3.5:4b"
+    assert config.llm.model == "qwen2.5:7b"
     assert config.log_level == "INFO"
 
 

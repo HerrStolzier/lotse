@@ -18,21 +18,29 @@ litellm.telemetry = False
 logger = logging.getLogger(__name__)
 
 CLASSIFICATION_PROMPT = """\
-You are a document classifier. Analyze the following content and classify it.
+You are a strict document classifier. Read the content carefully and classify it \
+into exactly ONE of these categories:
 
-Return a JSON object with exactly these fields:
-- "category": a short lowercase label (e.g., "rechnung", "vertrag", "artikel", "code")
-- "confidence": a float between 0.0 and 1.0
-- "summary": a one-line summary of the content
-- "tags": a list of relevant tags
-- "language": detected language code (e.g., "de", "en")
+- "rechnung" = invoice, bill, payment request, price list
+- "vertrag" = contract, lease, agreement, terms
+- "brief" = letter, correspondence, official notice
+- "bescheid" = government notice, tax assessment, official decision
+- "artikel" = article, tutorial, guide, blog post, documentation
+- "paper" = academic paper, research, study
+- "code" = source code, script, configuration file
+- "notiz" = personal note, memo, reminder
 
-Content to classify:
+Choose the MOST SPECIFIC category. An invoice is "rechnung", not "vertrag".
+A tutorial is "artikel", not "code" (even if it contains code examples).
+
+Return ONLY a JSON object (no other text, no markdown):
+{{"category": "...", "confidence": 0.0-1.0, \
+"summary": "one line in document language", "tags": ["..."], "language": "de or en"}}
+
+Content:
 ---
 {content}
 ---
-
-Respond with ONLY the JSON object, no other text.
 """
 
 
@@ -74,9 +82,14 @@ class Classifier:
 
     def __init__(self, config: LLMConfig) -> None:
         self.config = config
-        self._model_id = (
-            f"{config.provider}/{config.model}" if config.provider != "openai" else config.model
-        )
+        # LiteLLM requires "ollama_chat/" prefix for Ollama models.
+        # Plain "ollama/" uses legacy /api/generate which drops messages.
+        if config.provider == "ollama":
+            self._model_id = f"ollama_chat/{config.model}"
+        elif config.provider == "openai":
+            self._model_id = config.model
+        else:
+            self._model_id = f"{config.provider}/{config.model}"
 
         # Warn once if using a cloud provider
         if config.provider not in ("ollama",) and not Classifier._cloud_warning_shown:
