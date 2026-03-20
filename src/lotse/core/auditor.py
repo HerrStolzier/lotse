@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from lotse.core.config import LotseConfig
 from lotse.db.store import Store
@@ -94,7 +95,7 @@ class Auditor:
 
     def _check_duplicates(
         self,
-        items: list[dict],
+        items: list[dict[str, Any]],
         report: AuditReport,
         threshold: float,
     ) -> None:
@@ -177,7 +178,7 @@ class Auditor:
 
     def _check_low_confidence(
         self,
-        items: list[dict],
+        items: list[dict[str, Any]],
         report: AuditReport,
         threshold: float,
     ) -> None:
@@ -219,7 +220,7 @@ class Auditor:
             )
             report.orphaned_count += 1
 
-    def _check_missing_destinations(self, items: list[dict], report: AuditReport) -> None:
+    def _check_missing_destinations(self, items: list[dict[str, Any]], report: AuditReport) -> None:
         """Check if routed files still exist at their destination."""
         for item in items:
             dest = item.get("destination", "")
@@ -248,7 +249,7 @@ class Auditor:
 
     def _check_misclassified(
         self,
-        items: list[dict],
+        items: list[dict[str, Any]],
         report: AuditReport,
         sample_size: int,
     ) -> None:

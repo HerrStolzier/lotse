@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lotse.core.auditor import AuditReport
 
 import typer
 from rich.console import Console
@@ -485,7 +489,7 @@ def audit(
         _run_interactive_fixes(cfg, report)
 
 
-def _run_interactive_fixes(cfg: LotseConfig, report) -> None:
+def _run_interactive_fixes(cfg: LotseConfig, report: AuditReport) -> None:
     """Walk through issues and offer fixes."""
 
     fixable = [i for i in report.issues if i.issue_type in ("orphaned", "misclassified")]
