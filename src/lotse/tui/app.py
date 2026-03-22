@@ -1255,6 +1255,8 @@ class HomeScreen(App[None]):
     """Lotse Hauptmenü."""
 
     CSS_PATH: ClassVar[Path] = Path(__file__).parent / "styles.css"
+    SHOW_HEADER: ClassVar[bool] = False
+    ENABLE_COMMAND_PALETTE: ClassVar[bool] = False
 
     BINDINGS: ClassVar[list[Binding]] = [
         Binding("q", "quit", "Beenden", show=True),
