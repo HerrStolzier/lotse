@@ -284,24 +284,59 @@ def _configure_llm(sys_info: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
 
+_MODEL_HINTS: dict[str, tuple[str, bool]] = {
+    # model_prefix: (description, recommended)
+    "qwen2.5:7b": ("Schnell & genau — empfohlen für Kurier", True),
+    "qwen2.5:3b": ("Leichtgewicht, gut für ältere Rechner", False),
+    "qwen2.5:1.5b": ("Minimal, kann ungenau klassifizieren", False),
+    "qwen3.5": ("Langsam (Denkpause ~100s pro Datei)", False),
+    "llama3.1:8b": ("Solide Alternative zu Qwen", False),
+    "llama3.1": ("Solide Alternative zu Qwen", False),
+    "mistral": ("Gut für englische Texte", False),
+    "gemma": ("Google-Modell, mittlere Qualität", False),
+    "phi": ("Microsoft, klein aber fähig", False),
+    "nomic-embed": ("Nur für Embeddings — nicht geeignet", False),
+    "minimax": ("Cloud-Modell, nicht lokal", False),
+}
+
+
+def _get_model_hint(model_name: str) -> tuple[str, bool]:
+    """Get description and recommendation for a model."""
+    for prefix, (desc, rec) in _MODEL_HINTS.items():
+        if model_name.startswith(prefix):
+            return desc, rec
+    return "", False
+
+
 def _configure_ollama_existing(sys_info: dict[str, Any]) -> dict[str, Any]:
     """Configure Ollama when models are already available."""
     models = sys_info["ollama_models"]
 
-    console.print(f"[green]Ollama is running with {len(models)} model(s).[/green]\n")
+    console.print(f"[green]Ollama läuft mit {len(models)} Modell(en).[/green]")
+    console.print(
+        "[dim]Das Modell liest deine Dateien und klassifiziert sie."
+        " Größere Modelle (7b+) sind genauer, brauchen aber mehr RAM.[/dim]\n"
+    )
 
     for i, model in enumerate(models[:8], 1):
-        console.print(f"  [bold]{i}.[/bold] {model}")
+        hint, recommended = _get_model_hint(model)
+        if recommended:
+            console.print(f"  [bold green]{i}. {model}[/bold green]  [green]★ {hint}[/green]")
+        elif hint:
+            console.print(f"  [bold]{i}.[/bold] {model}  [dim]{hint}[/dim]")
+        else:
+            console.print(f"  [bold]{i}.[/bold] {model}")
 
-    console.print(f"  [bold]{len(models[:8]) + 1}.[/bold] Pull a new model")
+    pull_idx = len(models[:8]) + 1
+    console.print(f"  [bold]{pull_idx}.[/bold] Neues Modell herunterladen")
 
-    choice = console.input(f"\n[bold]Choose model [1-{len(models[:8]) + 1}]:[/bold] ").strip()
+    choice = console.input(f"\n[bold]Modell wählen [1-{pull_idx}]:[/bold] ").strip()
 
     try:
         idx = int(choice) - 1
         if 0 <= idx < len(models[:8]):
             selected = models[idx]
-            console.print(f"\n[green]Using:[/green] {selected}")
+            console.print(f"\n[green]✓ Verwende:[/green] {selected}")
             return {
                 "provider": "ollama",
                 "model": selected,
