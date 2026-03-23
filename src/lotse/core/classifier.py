@@ -39,7 +39,12 @@ A tutorial is "artikel", not "code" (even if it contains code examples).
 
 Return ONLY a JSON object (no other text, no markdown):
 {{"category": "...", "confidence": 0.0-1.0, \
-"summary": "one line in document language", "tags": ["..."], "language": "de or en"}}
+"summary": "one line in document language", "tags": ["..."], "language": "de or en", \
+"suggested_filename": "kurzer deutscher Dateiname, max 5 Wörter, \
+beschreibt den Inhalt so dass man die Datei in 6 Monaten wiederfindet. \
+Regeln: Leerzeichen zwischen Wörtern (KEINE Unterstriche), normale Groß/Kleinschreibung, \
+nichts abkürzen, keine Dateiendung anhängen. \
+Beispiele: Rechnung Telekom März 2026, Mietvertrag Schillerstraße München, Steuerbescheid 2025"}}
 
 Content:
 ---
@@ -63,6 +68,7 @@ class Classification:
     summary: str
     tags: list[str]
     language: str
+    suggested_filename: str = ""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Classification:
@@ -72,6 +78,7 @@ class Classification:
             summary=data.get("summary", ""),
             tags=data.get("tags", []),
             language=data.get("language", "unknown"),
+            suggested_filename=data.get("suggested_filename", ""),
         )
 
     @classmethod
@@ -82,6 +89,7 @@ class Classification:
             summary=reason,
             tags=[],
             language="unknown",
+            suggested_filename="",
         )
 
 

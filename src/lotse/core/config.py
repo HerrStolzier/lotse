@@ -48,6 +48,7 @@ class RouteConfig(BaseModel):
     url: str | None = None
     categories: list[str] = Field(default_factory=list)
     confidence_threshold: float = 0.7
+    rename: bool = True
 
 
 class AuditConfig(BaseModel):

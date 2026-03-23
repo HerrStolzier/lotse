@@ -3,14 +3,92 @@
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 from lotse.core.classifier import Classification
 from lotse.core.config import RouteConfig
 
 logger = logging.getLogger(__name__)
+
+# Characters not allowed in filenames (Windows + macOS + Linux)
+_UNSAFE_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_MAX_FILENAME_LEN = 200
+_FILE_EXTENSIONS = {
+    "pdf",
+    "txt",
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "csv",
+    "json",
+    "xml",
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "bmp",
+    "webp",
+    "tiff",
+    "svg",
+    "py",
+    "js",
+    "ts",
+    "html",
+    "css",
+    "md",
+    "yaml",
+    "yml",
+    "toml",
+    "zip",
+    "tar",
+    "gz",
+    "rar",
+    "eml",
+    "mbox",
+}
+
+
+def _build_filename(classification: Classification, extension: str) -> str:
+    """Build a human-readable filename from classification data.
+
+    Format: DD.MM.YYYY Suggested Filename.ext
+    Example: 23.03.2026 Rechnung Telekom März.pdf
+    """
+    today = date.today().strftime("%d.%m.%Y")
+    name = classification.suggested_filename.strip()
+
+    # Remove unsafe characters
+    name = _UNSAFE_CHARS.sub("", name)
+
+    # Underscores → spaces (LLMs sometimes ignore the prompt instruction)
+    name = name.replace("_", " ")
+
+    # Collapse whitespace
+    name = re.sub(r"\s+", " ", name).strip()
+
+    # Only strip actual file extensions, not dates like "20.03" or words like "Nr.123"
+    if "." in name:
+        stem, ext = name.rsplit(".", 1)
+        if ext.lower() in _FILE_EXTENSIONS:
+            name = stem.rstrip()
+
+    if not name:
+        name = classification.category.capitalize() if classification.category else "Dokument"
+
+    full = f"{today} {name}{extension}"
+
+    # Truncate if too long (keep date + extension intact)
+    if len(full) > _MAX_FILENAME_LEN:
+        available = _MAX_FILENAME_LEN - len(today) - len(extension) - 2
+        name = name[:available].rstrip()
+        full = f"{today} {name}{extension}"
+
+    return full
 
 
 @dataclass
@@ -84,7 +162,7 @@ class Router:
     ) -> RouteResult:
         """Execute a specific route."""
         if route_config.type == "folder":
-            return self._route_to_folder(source_path, route_name, route_config)
+            return self._route_to_folder(source_path, route_name, route_config, classification)
         elif route_config.type == "webhook":
             return self._route_to_webhook(source_path, route_name, route_config, classification)
         else:
@@ -97,7 +175,11 @@ class Router:
             )
 
     def _route_to_folder(
-        self, source_path: Path, route_name: str, route_config: RouteConfig
+        self,
+        source_path: Path,
+        route_name: str,
+        route_config: RouteConfig,
+        classification: Classification,
     ) -> RouteResult:
         """Route a file to a folder destination."""
         if not route_config.path:
@@ -110,7 +192,12 @@ class Router:
 
         dest_dir = Path(route_config.path).expanduser()
         dest_dir.mkdir(parents=True, exist_ok=True)
-        dest_path = dest_dir / source_path.name
+
+        if route_config.rename and classification.suggested_filename:
+            new_name = _build_filename(classification, source_path.suffix)
+            dest_path = dest_dir / new_name
+        else:
+            dest_path = dest_dir / source_path.name
 
         # Handle name collision
         if dest_path.exists():
