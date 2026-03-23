@@ -30,10 +30,10 @@ jobs:
         run: ruff check src/
 
       - name: Type check with mypy
-        run: mypy src/lotse/ --ignore-missing-imports
+        run: mypy src/arkiv/ --ignore-missing-imports
 
       - name: Run tests
-        run: pytest --cov=lotse --cov-report=xml
+        run: pytest --cov=arkiv --cov-report=xml
 
   lint:
     runs-on: ubuntu-latest

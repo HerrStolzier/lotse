@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from lotse.core.auditor import AuditIssue, Auditor, AuditReport
-from lotse.core.config import LotseConfig
+from arkiv.core.auditor import AuditIssue, Auditor, AuditReport
+from arkiv.core.config import ArkivConfig
 
 
 def _make_embedding(seed: float = 0.0) -> bytes:
@@ -18,8 +18,8 @@ def _make_embedding(seed: float = 0.0) -> bytes:
 
 
 @pytest.fixture
-def config(tmp_path: Path) -> LotseConfig:
-    return LotseConfig(
+def config(tmp_path: Path) -> ArkivConfig:
+    return ArkivConfig(
         database={"path": tmp_path / "test.db"},
         inbox_dir=tmp_path / "inbox",
         review_dir=tmp_path / "review",
@@ -27,7 +27,7 @@ def config(tmp_path: Path) -> LotseConfig:
 
 
 @pytest.fixture
-def auditor(config: LotseConfig) -> Auditor:
+def auditor(config: ArkivConfig) -> Auditor:
     config.ensure_dirs()
     return Auditor(config)
 
@@ -119,7 +119,7 @@ def test_skips_review_route_for_confidence(auditor: Auditor) -> None:
 # --- Orphaned Review ---
 
 
-def test_finds_orphaned_files(config: LotseConfig, auditor: Auditor) -> None:
+def test_finds_orphaned_files(config: ArkivConfig, auditor: Auditor) -> None:
     config.review_dir.mkdir(parents=True, exist_ok=True)
     (config.review_dir / "stuck_file.pdf").write_text("content")
     (config.review_dir / ".hidden").write_text("skip me")
@@ -228,7 +228,7 @@ def test_no_duplicate_for_different_embeddings(auditor: Auditor) -> None:
 
 def test_audit_uses_config_thresholds(tmp_path: Path) -> None:
     """Audit thresholds should come from config."""
-    config = LotseConfig(
+    config = ArkivConfig(
         database={"path": tmp_path / "test.db"},
         inbox_dir=tmp_path / "inbox",
         review_dir=tmp_path / "review",

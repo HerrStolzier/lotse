@@ -2,11 +2,11 @@
 
 from pathlib import Path
 
-from lotse.core.config import LotseConfig
+from arkiv.core.config import ArkivConfig
 
 
 def test_default_config() -> None:
-    config = LotseConfig()
+    config = ArkivConfig()
     assert config.llm.provider == "ollama"
     assert config.llm.model == "qwen2.5:7b"
     assert config.log_level == "INFO"
@@ -27,7 +27,7 @@ categories = ["document", "letter"]
 confidence_threshold = 0.8
 """)
 
-    config = LotseConfig.load(config_file)
+    config = ArkivConfig.load(config_file)
     assert config.llm.provider == "openai"
     assert config.llm.model == "gpt-4o-mini"
     assert "docs" in config.routes
@@ -35,5 +35,5 @@ confidence_threshold = 0.8
 
 
 def test_load_nonexistent_falls_back_to_defaults(tmp_path: Path) -> None:
-    config = LotseConfig.load(tmp_path / "nonexistent.toml")
+    config = ArkivConfig.load(tmp_path / "nonexistent.toml")
     assert config.llm.provider == "ollama"

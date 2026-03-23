@@ -1,0 +1,37 @@
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 fade-in">
+    <div class="bg-arkiv-900 rounded-xl border border-arkiv-800 p-5">
+        <div class="text-sm text-gray-400">Total Items</div>
+        <div class="text-3xl font-bold text-white mt-1">{{ stats.total_items }}</div>
+    </div>
+    <div class="bg-arkiv-900 rounded-xl border border-arkiv-800 p-5">
+        <div class="text-sm text-gray-400">Categories</div>
+        <div class="text-3xl font-bold text-white mt-1">{{ stats.categories | length }}</div>
+    </div>
+    <div class="bg-arkiv-900 rounded-xl border border-arkiv-800 p-5">
+        <div class="text-sm text-gray-400">Routes</div>
+        <div class="text-3xl font-bold text-white mt-1">{{ stats.routes | length }}</div>
+    </div>
+    <div class="bg-arkiv-900 rounded-xl border border-arkiv-800 p-5">
+        <div class="text-sm text-gray-400">Semantic Search</div>
+        <div class="mt-1">
+            {% if stats.vec_enabled %}
+                <span class="text-green-400 font-medium">Enabled</span>
+                <span class="text-gray-500 text-sm ml-1">({{ stats.embeddings or 0 }} vectors)</span>
+            {% else %}
+                <span class="text-yellow-400 font-medium">Disabled</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if stats.categories %}
+<div class="mt-4 flex flex-wrap gap-2">
+    {% for cat, count in stats.categories.items() %}
+    <span class="inline-flex items-center gap-1.5 bg-arkiv-800 text-gray-300 text-sm px-3 py-1 rounded-full">
+        <span class="w-2 h-2 rounded-full bg-arkiv-500"></span>
+        {{ cat }}
+        <span class="text-gray-500">{{ count }}</span>
+    </span>
+    {% endfor %}
+</div>
+{% endif %}

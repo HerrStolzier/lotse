@@ -1,13 +1,13 @@
-# Lotse
+# Arkiv
 
 **Universal capture → classify → route. Your AI-powered data pilot.**
 
-Lotse takes any digital input — files, URLs, text — classifies it using AI, and routes it to the right destination. Think of it as an intelligent mail sorting facility for your digital life.
+Arkiv takes any digital input — files, URLs, text — classifies it using AI, and routes it to the right destination. Think of it as an intelligent mail sorting facility for your digital life.
 
 ```
               ┌─────────┐
   File ──────►│         │──► Archiv/Rechnungen
-  URL  ──────►│  LOTSE  │──► Leseliste/Artikel
+  URL  ──────►│  ARKIV  │──► Leseliste/Artikel
   Text ──────►│         │──► Code/Snippets
   Mail ──────►│ classify │──► Review (unsicher)
               │  route   │──► Plugin: Webhook
@@ -28,24 +28,24 @@ Lotse takes any digital input — files, URLs, text — classifies it using AI, 
 
 ```bash
 # Install
-pipx install "lotse @ git+https://github.com/HerrStolzier/lotse.git"
+pipx install "arkiv @ git+https://github.com/HerrStolzier/lotse.git"
 
 # Make sure Ollama is running with a model
 ollama pull qwen2.5:7b
 
-# Start Lotse
-lotse
+# Start Arkiv
+arkiv
 ```
 
-That's it. `lotse` launches the interactive TUI where you can classify files, search, monitor your inbox, and more — all from one interface.
+That's it. `arkiv` launches the interactive TUI where you can classify files, search, monitor your inbox, and more — all from one interface.
 
 > **Alternative install methods:**
 > ```bash
 > # With pip (requires a virtual environment)
-> pip install "lotse @ git+https://github.com/HerrStolzier/lotse.git"
+> pip install "arkiv @ git+https://github.com/HerrStolzier/lotse.git"
 >
 > # With uv
-> uv pip install "lotse @ git+https://github.com/HerrStolzier/lotse.git"
+> uv pip install "arkiv @ git+https://github.com/HerrStolzier/lotse.git"
 > ```
 
 ### CLI Commands
@@ -53,20 +53,20 @@ That's it. `lotse` launches the interactive TUI where you can classify files, se
 All features are also available as individual commands:
 
 ```bash
-lotse                         # Interactive TUI (default)
-lotse add invoice.pdf         # Classify and route a file
-lotse watch                   # Auto-process files in inbox
-lotse search "Rechnung"       # Hybrid keyword + semantic search
-lotse status                  # Processing statistics
-lotse undo                    # Undo last routing action
-lotse export --format csv     # Export all items as CSV
-lotse doctor                  # Check system health
-lotse init                    # Interactive setup wizard
+arkiv                         # Interactive TUI (default)
+arkiv add invoice.pdf         # Classify and route a file
+arkiv watch                   # Auto-process files in inbox
+arkiv search "Rechnung"       # Hybrid keyword + semantic search
+arkiv status                  # Processing statistics
+arkiv undo                    # Undo last routing action
+arkiv export --format csv     # Export all items as CSV
+arkiv doctor                  # Check system health
+arkiv init                    # Interactive setup wizard
 ```
 
 ## Configuration
 
-Lotse uses a TOML config file at `~/.config/lotse/config.toml`:
+Arkiv uses a TOML config file at `~/.config/arkiv/config.toml`:
 
 ```toml
 [llm]
@@ -79,20 +79,20 @@ model = "BAAI/bge-small-en-v1.5"
 
 [routes.archiv]
 type = "folder"
-path = "~/Documents/Lotse/Archiv"
+path = "~/Documents/Arkiv/Archiv"
 categories = ["rechnung", "vertrag", "brief"]
 confidence_threshold = 0.7
 
 [routes.artikel]
 type = "folder"
-path = "~/Documents/Lotse/Artikel"
+path = "~/Documents/Arkiv/Artikel"
 categories = ["artikel", "paper", "tutorial"]
 confidence_threshold = 0.6
 ```
 
 ## LLM Providers
 
-Lotse supports any LLM provider via [LiteLLM](https://github.com/BerriAI/litellm):
+Arkiv supports any LLM provider via [LiteLLM](https://github.com/BerriAI/litellm):
 
 | Provider | Config |
 |----------|--------|
@@ -107,10 +107,10 @@ Start the API server for external integrations, webhooks, and mobile capture:
 
 ```bash
 # Install API dependencies
-uv pip install "lotse[api] @ git+https://github.com/HerrStolzier/lotse.git"
+uv pip install "arkiv[api] @ git+https://github.com/HerrStolzier/lotse.git"
 
 # Start the server
-lotse serve
+arkiv serve
 # → http://127.0.0.1:8790/docs (Swagger UI)
 ```
 
@@ -135,7 +135,7 @@ curl "http://localhost:8790/search?q=Telefonkosten&mode=auto"
 
 ## Plugins
 
-Lotse is built to be extended. Plugins can:
+Arkiv is built to be extended. Plugins can:
 
 - **Pre-process** content before classification
 - **Post-process** classification results
@@ -145,8 +145,8 @@ Lotse is built to be extended. Plugins can:
 ### Writing a Plugin
 
 ```python
-# my_lotse_plugin.py
-from lotse.plugins.spec import hookimpl
+# my_arkiv_plugin.py
+from arkiv.plugins.spec import hookimpl
 
 @hookimpl
 def on_routed(path: str, destination: str, route_name: str) -> None:
@@ -156,8 +156,8 @@ def on_routed(path: str, destination: str, route_name: str) -> None:
 
 ```toml
 # pyproject.toml
-[project.entry-points."lotse.plugins"]
-my-plugin = "my_lotse_plugin"
+[project.entry-points."arkiv.plugins"]
+my-plugin = "my_arkiv_plugin"
 ```
 
 See the [Plugin Guide](docs/plugins.md) for details.
@@ -165,7 +165,7 @@ See the [Plugin Guide](docs/plugins.md) for details.
 ## Architecture
 
 ```
-src/lotse/
+src/arkiv/
 ├── cli.py              # Typer CLI interface
 ├── core/
 │   ├── config.py       # TOML configuration

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from lotse.inlets.email import ParsedEmail, _strip_html, parse_eml, save_attachments
+from arkiv.inlets.email import ParsedEmail, _strip_html, parse_eml, save_attachments
 
 
 @pytest.fixture

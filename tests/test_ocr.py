@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from lotse.core.ocr import (
+from arkiv.core.ocr import (
     IMAGE_EXTENSIONS,
     PDF_EXTENSIONS,
     is_ocr_candidate,

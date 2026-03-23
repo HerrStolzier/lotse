@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lotse.setup_wizard import (
+from arkiv.setup_wizard import (
     MODEL_RECOMMENDATIONS,
     _check_ollama_running,
     _detect_ram,
@@ -18,7 +18,7 @@ def test_detect_ram_returns_positive() -> None:
 def test_model_recommendations_sorted_by_ram() -> None:
     """Models should be listed from highest to lowest RAM requirement."""
     prev_ram = float("inf")
-    for min_ram, model_id, name, note in MODEL_RECOMMENDATIONS:
+    for min_ram, _model_id, name, _note in MODEL_RECOMMENDATIONS:
         assert min_ram <= prev_ram, f"{name} breaks RAM sort order"
         prev_ram = min_ram
 

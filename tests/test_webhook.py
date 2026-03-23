@@ -7,11 +7,11 @@ from unittest.mock import patch
 
 import pytest
 
-from lotse.core.classifier import Classification
-from lotse.core.config import RouteConfig
-from lotse.core.router import Router
+from arkiv.core.classifier import Classification
+from arkiv.core.config import RouteConfig
+from arkiv.core.router import Router
 
-lotse_webhook = pytest.importorskip("lotse_webhook", reason="lotse_webhook plugin not installed")
+arkiv_webhook = pytest.importorskip("arkiv_webhook", reason="arkiv_webhook plugin not installed")
 
 
 @pytest.fixture
@@ -85,7 +85,7 @@ def test_webhook_route_sends_and_keeps_file(router_with_webhook: Router, tmp_pat
         language="de",
     )
 
-    with patch("lotse_webhook.send_webhook", return_value=True) as mock:
+    with patch("arkiv_webhook.send_webhook", return_value=True) as mock:
         result = router_with_webhook.execute(source, classification)
 
     assert result.success
@@ -116,7 +116,7 @@ def test_webhook_only_route(tmp_path: Path) -> None:
         language="en",
     )
 
-    with patch("lotse_webhook.send_webhook", return_value=True):
+    with patch("arkiv_webhook.send_webhook", return_value=True):
         result = router.execute(source, classification)
 
     # Webhook-only = file stays, webhook fires, result is from webhook
@@ -139,7 +139,7 @@ def test_webhook_failure_does_not_block_folder_route(
         language="de",
     )
 
-    with patch("lotse_webhook.send_webhook", return_value=False):
+    with patch("arkiv_webhook.send_webhook", return_value=False):
         result = router_with_webhook.execute(source, classification)
 
     assert result.success

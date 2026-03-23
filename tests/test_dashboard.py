@@ -9,13 +9,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from lotse.core.config import LotseConfig
-from lotse.inlets.api import create_app
+from arkiv.core.config import ArkivConfig
+from arkiv.inlets.api import create_app
 
 
 @pytest.fixture
 def client(tmp_path: Path) -> TestClient:
-    config = LotseConfig(
+    config = ArkivConfig(
         database={"path": tmp_path / "test.db"},
         inbox_dir=tmp_path / "inbox",
         review_dir=tmp_path / "review",
@@ -33,7 +33,7 @@ def test_root_redirects_to_dashboard(client: TestClient) -> None:
 def test_dashboard_loads(client: TestClient) -> None:
     resp = client.get("/dashboard/")
     assert resp.status_code == 200
-    assert "Lotse" in resp.text
+    assert "Arkiv" in resp.text
     assert "htmx" in resp.text
     assert "tailwindcss" in resp.text
 
@@ -76,7 +76,7 @@ def test_upload_partial(client: TestClient) -> None:
         }
     )
 
-    with patch("lotse.core.classifier.completion", return_value=mock_response):
+    with patch("arkiv.core.classifier.completion", return_value=mock_response):
         resp = client.post(
             "/dashboard/partials/upload",
             files={"file": ("test.txt", b"Invoice content", "text/plain")},
@@ -100,7 +100,7 @@ def test_search_after_upload(client: TestClient) -> None:
         }
     )
 
-    with patch("lotse.core.classifier.completion", return_value=mock_response):
+    with patch("arkiv.core.classifier.completion", return_value=mock_response):
         client.post(
             "/dashboard/partials/upload",
             files={"file": ("tutorial.md", b"# Python Tutorial", "text/markdown")},
@@ -124,7 +124,7 @@ def test_recent_shows_items_after_upload(client: TestClient) -> None:
         }
     )
 
-    with patch("lotse.core.classifier.completion", return_value=mock_response):
+    with patch("arkiv.core.classifier.completion", return_value=mock_response):
         client.post(
             "/dashboard/partials/upload",
             files={"file": ("note.txt", b"Remember this", "text/plain")},

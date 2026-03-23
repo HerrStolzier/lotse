@@ -1,4 +1,4 @@
-# Lotse
+# Arkiv
 
 Universal capture → classify → route platform. Python 3.11+, local-first.
 
@@ -19,26 +19,26 @@ ruff format src/          # format
 ruff check src/ --fix     # auto-fix
 
 # Type check
-mypy src/lotse/ --ignore-missing-imports
+mypy src/arkiv/ --ignore-missing-imports
 
 # Start API + dashboard
-lotse serve               # http://127.0.0.1:8790/dashboard/
+arkiv serve               # http://127.0.0.1:8790/dashboard/
 
 # Audit routing decisions
-lotse audit               # report only
-lotse audit --fix         # interactive fix mode
+arkiv audit               # report only
+arkiv audit --fix         # interactive fix mode
 
 # System health
-lotse doctor              # check Ollama, RAM, model availability
+arkiv doctor              # check Ollama, RAM, model availability
 
 # Plugin tests (separate rootdir to avoid import conflicts)
-pytest --rootdir=plugins/lotse-webhook --override-ini="testpaths=plugins/lotse-webhook/tests" plugins/lotse-webhook/tests/
+pytest --rootdir=plugins/arkiv-webhook --override-ini="testpaths=plugins/arkiv-webhook/tests" plugins/arkiv-webhook/tests/
 ```
 
 ## Architecture
 
 ```
-src/lotse/
+src/arkiv/
 ├── cli.py                 # Typer CLI (11 commands)
 ├── setup_wizard.py        # Interactive first-run setup (system detection, model selection)
 ├── core/
@@ -61,9 +61,9 @@ src/lotse/
 │   └── email.py           # IMAP fetch + .eml/.mbox parsing (stdlib only)
 └── plugins/
     ├── spec.py            # pluggy hookspecs (pre_classify, post_classify, custom_route, on_routed)
-    └── manager.py         # Plugin discovery via entry_points("lotse.plugins")
+    └── manager.py         # Plugin discovery via entry_points("arkiv.plugins")
 
-plugins/lotse-webhook/     # First-party plugin: webhook routes (Slack, Discord, generic)
+plugins/arkiv-webhook/     # First-party plugin: webhook routes (Slack, Discord, generic)
 ```
 
 ## Key Patterns
@@ -82,7 +82,7 @@ plugins/lotse-webhook/     # First-party plugin: webhook routes (Slack, Discord,
 
 ## Config
 
-TOML at `~/.config/lotse/config.toml`. Run `lotse init` for interactive wizard, `lotse init --quick` for defaults.
+TOML at `~/.config/arkiv/config.toml`. Run `arkiv init` for interactive wizard, `arkiv init --quick` for defaults.
 
 Key sections:
 - `[llm]` — provider, model, base_url, temperature
@@ -95,9 +95,9 @@ Key sections:
 
 | Extra | What it enables | Install |
 |-------|----------------|---------|
-| `api` | REST API + Dashboard | `pip install lotse[api]` |
-| `ocr` | PDF/image text extraction | `pip install lotse[ocr]` + `brew install tesseract` |
-| `dev` | Testing + linting | `pip install lotse[dev]` |
+| `api` | REST API + Dashboard | `pip install arkiv[api]` |
+| `ocr` | PDF/image text extraction | `pip install arkiv[ocr]` + `brew install tesseract` |
+| `dev` | Testing + linting | `pip install arkiv[dev]` |
 
 ## Ruff
 
@@ -105,7 +105,7 @@ B008 is ignored globally — `typer.Argument()`/`typer.Option()` in function def
 
 ## Testing
 
-- Unit tests mock LLM calls via `patch("lotse.core.classifier.completion")`.
+- Unit tests mock LLM calls via `patch("arkiv.core.classifier.completion")`.
 - API tests use `fastapi.testclient.TestClient`.
 - Store/auditor tests use `tmp_path` fixture for disposable SQLite DBs.
 - **Mock gap warning**: Unit tests with mocked LLM don't test the real integration path (LiteLLM → Ollama). Always verify with at least one smoke test using a real LLM. The pluggy empty-list bug was invisible to 78 green unit tests.

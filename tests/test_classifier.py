@@ -3,8 +3,8 @@
 import json
 from unittest.mock import MagicMock, patch
 
-from lotse.core.classifier import Classifier
-from lotse.core.config import LLMConfig
+from arkiv.core.classifier import Classifier
+from arkiv.core.config import LLMConfig
 
 
 def _mock_completion_response(data: dict) -> MagicMock:
@@ -26,7 +26,7 @@ def test_classify_parses_response() -> None:
         "language": "de",
     }
 
-    with patch("lotse.core.classifier.completion") as mock_llm:
+    with patch("arkiv.core.classifier.completion") as mock_llm:
         mock_llm.return_value = _mock_completion_response(expected)
         result = classifier.classify("Telekom Rechnung 2026")
 
@@ -47,7 +47,7 @@ def test_classify_handles_markdown_wrapped_json() -> None:
         "language": "en",
     }
 
-    with patch("lotse.core.classifier.completion") as mock_llm:
+    with patch("arkiv.core.classifier.completion") as mock_llm:
         mock = MagicMock()
         mock.choices = [MagicMock()]
         mock.choices[0].message.content = f"```json\n{json.dumps(json_data)}\n```"
@@ -62,7 +62,7 @@ def test_classify_returns_low_confidence_on_error() -> None:
     config = LLMConfig(provider="ollama", model="mistral")
     classifier = Classifier(config)
 
-    with patch("lotse.core.classifier.completion") as mock_llm:
+    with patch("arkiv.core.classifier.completion") as mock_llm:
         mock_llm.side_effect = Exception("Connection refused")
         result = classifier.classify("some content")
 

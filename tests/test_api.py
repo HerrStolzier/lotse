@@ -9,14 +9,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from lotse.core.config import LotseConfig
-from lotse.inlets.api import create_app
+from arkiv.core.config import ArkivConfig
+from arkiv.inlets.api import create_app
 
 
 @pytest.fixture
 def client(tmp_path: Path) -> TestClient:
     """Create a test client with a temp database."""
-    config = LotseConfig(
+    config = ArkivConfig(
         database={"path": tmp_path / "test.db"},
         inbox_dir=tmp_path / "inbox",
         review_dir=tmp_path / "review",
@@ -55,7 +55,7 @@ def test_ingest_text(client: TestClient) -> None:
         }
     )
 
-    with patch("lotse.core.classifier.completion", return_value=mock_response):
+    with patch("arkiv.core.classifier.completion", return_value=mock_response):
         resp = client.post(
             "/ingest/text",
             data={"text": "This is a test note about Python async patterns"},
@@ -86,7 +86,7 @@ def test_ingest_file(client: TestClient, tmp_path: Path) -> None:
         }
     )
 
-    with patch("lotse.core.classifier.completion", return_value=mock_response):
+    with patch("arkiv.core.classifier.completion", return_value=mock_response):
         resp = client.post(
             "/ingest/file",
             files={"file": ("tutorial.md", b"# Python Tutorial\nHello world", "text/markdown")},
@@ -124,7 +124,7 @@ def test_search_after_ingest(client: TestClient) -> None:
         }
     )
 
-    with patch("lotse.core.classifier.completion", return_value=mock_response):
+    with patch("arkiv.core.classifier.completion", return_value=mock_response):
         client.post(
             "/ingest/text",
             data={"text": "Telekom Rechnung für März 2026"},

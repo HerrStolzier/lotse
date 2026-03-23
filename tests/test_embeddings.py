@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import struct
 
-from lotse.core.embeddings import (
+from arkiv.core.embeddings import (
     EMBEDDING_DIM,
     _bytes_to_float_list,
     _float_list_to_bytes,

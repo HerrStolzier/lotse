@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from lotse.db.store import Store
+from arkiv.db.store import Store
 
 
 def _make_embedding(seed: float = 0.0) -> bytes:
