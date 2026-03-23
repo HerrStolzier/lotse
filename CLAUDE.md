@@ -1,15 +1,16 @@
-# Arkiv
+# Kurier
 
-Universal capture → classify → route platform. Python 3.11+, local-first.
+Universal capture → classify → route. Python 3.11+, local-first.
+PyPI: `pipx install kurier` | CLI: `kurier` | Internal package: `arkiv`
 
 ## Commands
 
 ```bash
 # Install (development)
-pip install -e ".[dev,api,ocr]"
+pip install -e ".[dev]"
 
 # Run tests
-pytest                    # all 78 tests
+pytest                    # all 82+ tests
 pytest tests/test_api.py  # specific module
 pytest -m smoke           # smoke tests only (require Ollama)
 
@@ -21,15 +22,28 @@ ruff check src/ --fix     # auto-fix
 # Type check
 mypy src/arkiv/ --ignore-missing-imports
 
-# Start API + dashboard
+# TUI (default wenn ohne Subcommand)
+kurier                     # Interaktive Oberfläche
+kurier tui                 # Explizit
+
+# Background service
+kurier service on          # Auto-start bei Login (launchd/systemd)
+kurier service off         # Service stoppen
+kurier service status      # Status + letzte Logs
+
+# Klassifizierung
+kurier add invoice.pdf     # Einzelne Datei
+kurier watch               # Inbox überwachen (blocking)
+kurier undo                # Letzte Sortierung rückgängig
+kurier export --format csv # Alle Einträge exportieren
+
+# API + Dashboard
 kurier serve               # http://127.0.0.1:8790/dashboard/
 
-# Audit routing decisions
+# Audit + Health
 kurier audit               # report only
 kurier audit --fix         # interactive fix mode
-
-# System health
-kurier doctor              # check Ollama, RAM, model availability
+kurier doctor              # check Config, Ollama, Routes, DB
 
 # Plugin tests (separate rootdir to avoid import conflicts)
 pytest --rootdir=plugins/arkiv-webhook --override-ini="testpaths=plugins/arkiv-webhook/tests" plugins/arkiv-webhook/tests/
@@ -39,8 +53,13 @@ pytest --rootdir=plugins/arkiv-webhook --override-ini="testpaths=plugins/arkiv-w
 
 ```
 src/arkiv/
-├── cli.py                 # Typer CLI (11 commands)
+├── cli.py                 # Typer CLI (16+ commands, inkl. service subapp)
 ├── setup_wizard.py        # Interactive first-run setup (system detection, model selection)
+├── service.py             # OS-native background service (launchd/systemd)
+├── notifications.py       # Cross-platform desktop notifications
+├── tui/
+│   ├── app.py             # Textual TUI (Home, Search, Recent, Watch, Audit, Wizard)
+│   └── styles.css         # Dark theme with amber accent
 ├── core/
 │   ├── config.py          # TOML config via pydantic-settings (XDG paths)
 │   ├── classifier.py      # LLM classification via LiteLLM (provider-agnostic)
@@ -48,7 +67,7 @@ src/arkiv/
 │   ├── engine.py          # Pipeline orchestrator: extract → classify → embed → route → store
 │   ├── embeddings.py      # FastEmbed wrapper (BAAI/bge-small-en-v1.5, 384-dim)
 │   ├── ocr.py             # PyMuPDF native + Tesseract fallback
-│   └── auditor.py         # Self-audit: duplicates, misclassifications, orphaned files, missing destinations
+│   └── auditor.py         # Self-audit: duplicates, misclassifications, orphaned files
 ├── db/
 │   └── store.py           # SQLite + FTS5 + sqlite-vec (hybrid search with RRF)
 ├── dashboard/
@@ -57,7 +76,7 @@ src/arkiv/
 │   └── templates/         # base.html + partials/ (stats, search, recent, upload)
 ├── inlets/
 │   ├── api.py             # FastAPI REST endpoints + dashboard mount
-│   ├── watch.py           # Filesystem watcher (watchdog)
+│   ├── watch.py           # Filesystem watcher (watchdog) with Ollama health-check
 │   └── email.py           # IMAP fetch + .eml/.mbox parsing (stdlib only)
 └── plugins/
     ├── spec.py            # pluggy hookspecs (pre_classify, post_classify, custom_route, on_routed)
@@ -69,6 +88,8 @@ plugins/arkiv-webhook/     # First-party plugin: webhook routes (Slack, Discord,
 ## Key Patterns
 
 - **LLM calls go through LiteLLM** (`core/classifier.py`). Ollama uses `ollama_chat/` prefix (NOT `ollama/`) — the plain prefix uses legacy `/api/generate` which drops message content. Needs explicit `api_base`.
+- **Retry-Logic**: Classifier hat 3 Retries mit exponential Backoff (1s, 3s, 9s). Timeout 30s pro Call.
+- **Transaction-Safety**: `ingest_file()` speichert erst als `pending`, dann `routed`/`failed`. Kein Datenverlust bei Routing-Fehler.
 - **Qwen 3.5 has "thinking mode"** that adds ~100s overhead per call. Use Qwen 2.5 for classification (no thinking, fast, accurate). Models below 7B tend to misclassify.
 - **Pluggy hook returns are lists, not values**: `hook.pre_classify()` returns `[]` when no plugin implements it. Original content must be preserved when the list is empty — otherwise the LLM receives empty input and hallucinates. This was a critical bug (March 2026).
 - **Embedding model is lazy-loaded** (`engine.py:embedder` property). FastEmbed loads ~33MB model on first use — don't import at module level.
@@ -79,10 +100,13 @@ plugins/arkiv-webhook/     # First-party plugin: webhook routes (Slack, Discord,
 - **OCR is two-stage**: PyMuPDF tries native text extraction first. Only if <50 chars found, Tesseract runs at 300 DPI. This avoids OCR overhead for 90% of PDFs.
 - **Dashboard uses HTMX partials**: Server returns HTML fragments, not JSON. Routes under `/dashboard/partials/*`. No JS build step. HTMX served locally, Tailwind via CDN.
 - **Plugin tests can't run in same pytest invocation** as core tests due to `tests/` package name collision. Use separate `--rootdir`.
+- **Watcher Ollama-Polling**: Wenn Ollama nicht läuft, pollt der Watcher alle 30s statt Dateien blind zu verarbeiten. Nur bei `provider = "ollama"`.
+- **Service Plist-Pfad**: macOS: `~/Library/LaunchAgents/local.kurier.watch.plist`, Logs: `~/Library/Logs/kurier.log`
+- **Custom Categories**: Optional via `[categories]` in config.toml — werden mit Defaults gemerged (Config gewinnt bei Konflikten)
 
 ## Config
 
-TOML at `~/.config/arkiv/config.toml`. Run `kurier init` for interactive wizard, `kurier init --quick` for defaults.
+TOML at `~/.config/arkiv/config.toml`. Run `kurier init` for interactive wizard (TUI), `kurier init --quick` for defaults.
 
 Key sections:
 - `[llm]` — provider, model, base_url, temperature
@@ -90,18 +114,19 @@ Key sections:
 - `[database]` — path, store_content (disable for max privacy)
 - `[audit]` — similarity_threshold (0.92), confidence_threshold (0.6), reclassify_sample (10)
 - `[routes.*]` — type (folder/webhook), path/url, categories, confidence_threshold
+- `inbox_dir` — Eingangs-Ordner (default: ~/Documents/Kurier/Eingang)
+- `review_dir` — Prüf-Ordner für unsichere Klassifizierungen
+- `notifications` — Desktop-Notifications ein/aus (default: true)
+- `[categories]` — Optional: eigene Kategorien als key=description Paare
 
 ## Optional Dependencies
 
-| Extra | What it enables | Install |
-|-------|----------------|---------|
-| `api` | REST API + Dashboard | `pip install kurier[api]` |
-| `ocr` | PDF/image text extraction | `pip install kurier[ocr]` + `brew install tesseract` |
-| `dev` | Testing + linting | `pip install kurier[dev]` |
+API, OCR, und TUI sind in den Haupt-Dependencies enthalten.
+Nur `dev` ist optional: `pip install kurier[dev]`
 
 ## Ruff
 
-B008 is ignored globally — `typer.Argument()`/`typer.Option()` in function defaults is the standard Typer pattern, not a bug.
+B008 and RUF012 are ignored globally — B008: typer.Argument/Option in defaults is the standard pattern. RUF012: ctypes _fields_ false positive.
 
 ## Testing
 
