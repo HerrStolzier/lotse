@@ -37,21 +37,20 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "watchdog>=6.0.0",
     "sqlite-vec>=0.1.6",
-]
-
-[project.optional-dependencies]
-api = [
+    # API + Dashboard
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
     "python-multipart>=0.0.18",
     "jinja2>=3.1.0",
-]
-ocr = [
+    # OCR (PDF/Bild-Texterkennung)
     "pymupdf>=1.24.0",
     "pytesseract>=0.3.10",
     "Pillow>=10.0.0",
+    # TUI
+    "textual>=1.0.0",
 ]
-tui = ["textual>=1.0.0"]
+
+[project.optional-dependencies]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=6.0",
