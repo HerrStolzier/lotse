@@ -74,6 +74,7 @@ class ArkivConfig(BaseSettings):
     watch_max_concurrent: int = 3
     classifier_retries: int = 3
     classifier_timeout: int = 30
+    notifications: bool = True
 
     @classmethod
     def load(cls, config_path: Path | None = None) -> ArkivConfig:

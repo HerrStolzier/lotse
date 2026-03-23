@@ -70,15 +70,33 @@ class Watcher:
         inbox_dir: Path,
         callback: Callable[[Path], None],
         max_concurrent: int = 3,
+        llm_provider: str = "ollama",
     ) -> None:
         self.inbox_dir = inbox_dir
         self.observer = Observer()
         self._semaphore = Semaphore(max_concurrent)
         self.handler = InboxHandler(callback, semaphore=self._semaphore)
         self._stop_event = Event()
+        self._llm_provider = llm_provider
+
+    def _wait_for_ollama(self) -> None:
+        """Poll Ollama until reachable. Blocks with 30s intervals."""
+        import urllib.request
+
+        url = "http://localhost:11434/api/tags"
+        while not self._stop_event.is_set():
+            try:
+                urllib.request.urlopen(url, timeout=5)
+                logger.info("Ollama is ready.")
+                return
+            except Exception:
+                logger.warning("Waiting for Ollama (%s)...", url)
+                self._stop_event.wait(timeout=30)
 
     def start(self) -> None:
         """Start watching. Blocks until stop() is called."""
+        if self._llm_provider == "ollama":
+            self._wait_for_ollama()
         self.inbox_dir.mkdir(parents=True, exist_ok=True)
         self.observer.schedule(self.handler, str(self.inbox_dir), recursive=False)
         self.observer.start()
