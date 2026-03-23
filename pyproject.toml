@@ -75,7 +75,7 @@ src = ["src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "RUF"]
-ignore = ["B008"]  # typer.Argument/Option in defaults is the standard pattern
+ignore = ["B008", "RUF012"]  # B008: typer defaults, RUF012: ctypes _fields_
 
 [tool.ruff.lint.isort]
 known-first-party = ["arkiv"]
