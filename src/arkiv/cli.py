@@ -903,4 +903,4 @@ def main(
         raise typer.Exit()
     if ctx.invoked_subcommand is None:
         # Kein Subcommand → TUI starten
-        ctx.invoke(tui)
+        tui()
