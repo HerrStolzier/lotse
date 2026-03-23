@@ -27,27 +27,48 @@ Lotse takes any digital input — files, URLs, text — classifies it using AI, 
 ## Quick Start
 
 ```bash
-# Install
-pip install lotse
+# 1. Create a virtual environment and install
+uv venv lotse-env && source lotse-env/bin/activate
+uv pip install "lotse @ git+https://github.com/HerrStolzier/lotse.git"
 
-# Initialize config
-lotse init
-
-# Make sure Ollama is running with a model
+# 2. Make sure Ollama is running with a model
 ollama pull qwen2.5:7b
 
-# Classify and route a file
+# 3. Initialize config
+lotse init
+
+# 4. Classify and route a file
 lotse add invoice.pdf
-
-# Watch inbox for new files
-lotse watch
-
-# Search your archive
-lotse search "Rechnung Telekom"
-
-# Check status
-lotse status
 ```
+
+> **Note:** After a terminal restart, reactivate the environment with:
+> `source lotse-env/bin/activate`
+
+### More Commands
+
+```bash
+lotse watch                   # Auto-process files in inbox
+lotse search "Rechnung"       # Hybrid keyword + semantic search
+lotse status                  # Processing statistics
+lotse undo                    # Undo last routing action
+lotse export --format csv     # Export all items as CSV
+lotse doctor                  # Check system health
+lotse tui                     # Interactive terminal UI (requires lotse[tui])
+```
+
+## Interactive TUI
+
+Lotse includes an optional interactive terminal interface:
+
+```bash
+# Install with TUI support
+uv pip install "lotse[tui] @ git+https://github.com/HerrStolzier/lotse.git"
+
+# Launch
+lotse tui
+```
+
+Navigate with arrow keys, number keys 1-7, and keyboard shortcuts. Includes live inbox monitoring, search, audit, and undo — all from one interface.
 
 ## Configuration
 
@@ -92,7 +113,7 @@ Start the API server for external integrations, webhooks, and mobile capture:
 
 ```bash
 # Install API dependencies
-pip install lotse[api]
+uv pip install "lotse[api] @ git+https://github.com/HerrStolzier/lotse.git"
 
 # Start the server
 lotse serve
@@ -181,6 +202,11 @@ src/lotse/
 - [x] Webhook route plugin (Slack, Discord, generic)
 - [x] OCR support (PyMuPDF + Tesseract)
 - [x] Self-audit system (duplicates, misclassifications, orphaned files)
+- [x] Interactive TUI (Textual)
+- [x] Undo & Export commands
+- [x] Retry logic with exponential backoff
+- [x] Transaction safety (pending → routed/failed)
+- [x] Custom categories via config
 - [ ] Browser extension
 
 ## Development
@@ -190,13 +216,14 @@ src/lotse/
 git clone https://github.com/HerrStolzier/lotse.git
 cd lotse
 
-# Install in development mode
-pip install -e ".[dev]"
+# Create venv and install in development mode
+uv venv && source .venv/bin/activate
+uv pip install -e ".[dev,api,ocr,tui]"
 
 # Run tests
 pytest
 
-# Lint
+# Lint + type check
 ruff check src/
 mypy src/
 ```
