@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import contextlib
+import platform
 import shutil
+import subprocess
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -1248,6 +1250,470 @@ class AuditScreen(Screen[None]):
 
 
 # ---------------------------------------------------------------------------
+# SetupWizardScreen
+# ---------------------------------------------------------------------------
+
+# Kopiert aus setup_wizard.py — Modell-Hinweise für die TUI-Auswahl
+_WIZARD_MODEL_HINTS: dict[str, tuple[str, bool]] = {
+    "qwen2.5:7b": ("Schnell & genau — empfohlen für Kurier", True),
+    "qwen2.5:3b": ("Leichtgewicht, gut für ältere Rechner", False),
+    "qwen2.5:1.5b": ("Minimal, kann ungenau klassifizieren", False),
+    "qwen3.5": ("Langsam (Denkpause ~100s pro Datei)", False),
+    "llama3.1:8b": ("Solide Alternative zu Qwen", False),
+    "llama3.1": ("Solide Alternative zu Qwen", False),
+    "mistral": ("Gut für englische Texte", False),
+    "gemma": ("Google-Modell, mittlere Qualität", False),
+    "phi": ("Microsoft, klein aber fähig", False),
+    "nomic-embed": ("Nur für Embeddings — nicht geeignet", False),
+    "minimax": ("Cloud-Modell, nicht lokal", False),
+}
+
+_WIZARD_RECOMMENDED = "qwen2.5:7b"
+
+
+def _wizard_model_hint(model_name: str) -> tuple[str, bool]:
+    """Gibt Beschreibung und Empfehlung für ein Modell zurück."""
+    for prefix, (desc, rec) in _WIZARD_MODEL_HINTS.items():
+        if model_name.startswith(prefix):
+            return desc, rec
+    return "", False
+
+
+class SetupWizardScreen(Screen[None]):
+    """Erster-Start-Wizard: Inbox-Ordner, LLM-Modell, Fertig."""
+
+    BINDINGS: ClassVar[list[Binding]] = [
+        Binding("enter", "next_step", "Weiter", show=True),
+        Binding("backspace", "prev_step", "Zurück", show=False),
+        Binding("escape", "cancel_wizard", "Abbrechen", show=True),
+        Binding("q", "cancel_wizard", "Abbrechen", show=False),
+    ]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._step: int = 1  # 1, 2 oder 3
+        self._inbox_path: Path = Path.home() / "Documents" / "Kurier" / "Eingang"
+        self._selected_model: str = _WIZARD_RECOMMENDED
+        self._ollama_models: list[str] = []
+        self._ollama_running: bool = False
+        self._ollama_checked: bool = False
+
+    # ------------------------------------------------------------------
+    # Compose
+    # ------------------------------------------------------------------
+
+    def compose(self) -> ComposeResult:
+        yield Static("", id="wizard-step-indicator")
+        yield Static("", id="wizard-content")
+        # Schritt 1: Ordner-Button und Pfad-Anzeige
+        yield Button("Ordner wählen", id="wizard-pick-folder-btn", variant="primary")
+        yield Static("", id="wizard-path-display")
+        # Schritt 2: Modell-ListView
+        yield ListView(id="wizard-model-list")
+        yield Static("", id="wizard-ollama-status")
+        # Schritt 3: Zusammenfassung
+        yield Static("", id="wizard-summary")
+        # Fallback: manuelles Eingabefeld
+        yield Input(placeholder="Pfad manuell eingeben...", id="wizard-path-input")
+        yield Static("", id="wizard-status")
+        yield Footer()
+
+    def on_mount(self) -> None:
+        self._render_step()
+        # Ollama-Check sofort im Hintergrund starten
+        threading.Thread(target=self._check_ollama, daemon=True).start()
+
+    # ------------------------------------------------------------------
+    # Schritt-Rendering
+    # ------------------------------------------------------------------
+
+    def _render_step(self) -> None:
+        """Alle Widgets je nach Schritt ein-/ausblenden und befüllen."""
+        self._update_indicator()
+
+        pick_btn = self.query_one("#wizard-pick-folder-btn", Button)
+        path_display = self.query_one("#wizard-path-display", Static)
+        model_list = self.query_one("#wizard-model-list", ListView)
+        ollama_status = self.query_one("#wizard-ollama-status", Static)
+        summary = self.query_one("#wizard-summary", Static)
+        path_input = self.query_one("#wizard-path-input", Input)
+        content = self.query_one("#wizard-content", Static)
+        status = self.query_one("#wizard-status", Static)
+        status.update("")
+
+        # Alles ausblenden
+        pick_btn.display = False
+        path_display.display = False
+        model_list.display = False
+        ollama_status.display = False
+        summary.display = False
+        path_input.display = False
+
+        # Footer-Bindings je Schritt anpassen
+        self._update_footer_bindings()
+
+        if self._step == 1:
+            content.update(
+                "[bold #f5a623]Eingangs-Ordner wählen[/bold #f5a623]\n\n"
+                "Wo sollen Dateien zum Sortieren abgelegt werden?\n"
+                "[dim]Kurier überwacht diesen Ordner und sortiert neue Dateien automatisch.[/dim]"
+            )
+            pick_btn.display = True
+            path_display.display = True
+            path_display.update(f"[dim]Gewählt:[/dim] [bold]{self._inbox_path}[/bold]")
+            path_input.display = True
+            path_input.value = str(self._inbox_path)
+
+        elif self._step == 2:
+            content.update(
+                "[bold #f5a623]LLM-Modell wählen[/bold #f5a623]\n\n"
+                "Das Modell klassifiziert deine Dateien automatisch.\n"
+                "[dim]Größere Modelle (7b+) sind genauer, brauchen aber mehr RAM.[/dim]"
+            )
+            ollama_status.display = True
+            model_list.display = True
+            if self._ollama_checked:
+                self._populate_model_list()
+            else:
+                ollama_status.update("[dim]Prüfe Ollama...[/dim]")
+
+        elif self._step == 3:
+            content.update(
+                "[bold #f5a623]Setup abgeschlossen[/bold #f5a623]\n\n"
+                "Alles bereit! Drücke [bold]Enter[/bold] um zu starten."
+            )
+            summary.display = True
+            self._render_summary()
+
+    def _update_indicator(self) -> None:
+        indicator = self.query_one("#wizard-step-indicator", Static)
+        labels = [
+            "Eingangs-Ordner",
+            "LLM-Modell",
+            "Fertig",
+        ]
+        label = labels[self._step - 1]
+        indicator.update(f"[bold]Schritt {self._step} von 3[/bold]  —  [#f5a623]{label}[/#f5a623]")
+
+    def _update_footer_bindings(self) -> None:
+        """Footer-Bindings je nach Schritt setzen."""
+        # Bindings sind statisch in BINDINGS — Footer zeigt Enter/ESC
+        # Wir passen lediglich die show-Eigenschaft dynamisch an
+        pass
+
+    def _render_summary(self) -> None:
+        from arkiv.core.config import DEFAULT_CONFIG_FILE
+
+        summary = self.query_one("#wizard-summary", Static)
+        lines = [
+            "[bold]Zusammenfassung:[/bold]\n",
+            f"[bold #f5a623]Inbox-Ordner:[/bold #f5a623]  {self._inbox_path}",
+            f"[bold #f5a623]LLM-Modell:  [/bold #f5a623]  {self._selected_model}",
+            f"[bold #f5a623]Config:      [/bold #f5a623]  {DEFAULT_CONFIG_FILE}",
+            "",
+            "[dim]Verzeichnisse werden beim Start angelegt.[/dim]",
+        ]
+        summary.update("\n".join(lines))
+
+    # ------------------------------------------------------------------
+    # Ollama-Check (Hintergrund-Thread)
+    # ------------------------------------------------------------------
+
+    def _check_ollama(self) -> None:
+        """Ollama-Status und verfügbare Modelle ermitteln."""
+        running = False
+        models: list[str] = []
+        try:
+            import json
+            import urllib.request
+
+            req = urllib.request.Request("http://localhost:11434/api/tags", method="GET")
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                data = json.loads(resp.read().decode())
+                running = True
+                models = [m["name"] for m in data.get("models", [])]
+        except Exception:
+            pass
+
+        self._ollama_running = running
+        self._ollama_models = models
+        self._ollama_checked = True
+        self.call_from_thread(self._on_ollama_checked)
+
+    def _on_ollama_checked(self) -> None:
+        """Wird im TUI-Thread aufgerufen, sobald Ollama-Check fertig ist."""
+        if self._step == 2:
+            self._populate_model_list()
+
+    def _populate_model_list(self) -> None:
+        """Modell-Liste befüllen."""
+        model_list = self.query_one("#wizard-model-list", ListView)
+        ollama_status = self.query_one("#wizard-ollama-status", Static)
+
+        model_list.clear()
+
+        if not self._ollama_running:
+            ollama_status.update(
+                "[yellow]Ollama nicht gefunden.[/yellow]  "
+                "Installiere es von [bold]https://ollama.com[/bold]  "
+                "[dim]— oder wähle trotzdem ein Modell:[/dim]"
+            )
+            # Empfehlungsliste aus setup_wizard.py anbieten
+            defaults = ["qwen2.5:7b", "qwen2.5:3b", "qwen2.5:1.5b", "mistral"]
+            for model in defaults:
+                desc, rec = _wizard_model_hint(model)
+                star = " [green]★[/green]" if rec else ""
+                label = f"{model}{star}  [dim]{desc}[/dim]" if desc else model
+                model_list.append(ListItem(Label(label), id=f"model-{model.replace(':', '-')}"))
+        else:
+            models = self._ollama_models
+            if models:
+                ollama_status.update(
+                    f"[green]Ollama läuft[/green] — {len(models)} Modell(e) verfügbar"
+                )
+                for model in models[:10]:
+                    desc, rec = _wizard_model_hint(model)
+                    star = " [green]★[/green]" if rec else ""
+                    label = f"{model}{star}  [dim]{desc}[/dim]" if desc else model
+                    model_list.append(ListItem(Label(label), id=f"model-{model.replace(':', '-')}"))
+                # Empfohlenes Modell vorauswählen
+                for i, m in enumerate(models[:10]):
+                    if m.startswith(_WIZARD_RECOMMENDED):
+                        model_list.index = i
+                        break
+            else:
+                ollama_status.update(
+                    "[yellow]Ollama läuft, aber keine Modelle heruntergeladen.[/yellow]\n"
+                    "Empfehlung: [bold]ollama pull qwen2.5:7b[/bold]"
+                )
+                defaults = ["qwen2.5:7b", "qwen2.5:3b", "qwen2.5:1.5b"]
+                for model in defaults:
+                    desc, rec = _wizard_model_hint(model)
+                    star = " [green]★[/green]" if rec else ""
+                    label = f"{model}{star}  [dim]{desc}[/dim]" if desc else model
+                    model_list.append(ListItem(Label(label), id=f"model-{model.replace(':', '-')}"))
+
+    # ------------------------------------------------------------------
+    # Ordner-Picker
+    # ------------------------------------------------------------------
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "wizard-pick-folder-btn":
+            threading.Thread(target=self._pick_folder, daemon=True).start()
+
+    def _pick_folder(self) -> None:
+        """Native OS-Ordner-Auswahl (nicht-blockierend im Thread)."""
+        result: str | None = None
+        system = platform.system()
+        try:
+            if system == "Darwin":
+                proc = subprocess.run(
+                    [
+                        "osascript",
+                        "-e",
+                        'POSIX path of (choose folder with prompt "Eingangs-Ordner wählen:")',
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                if proc.returncode == 0:
+                    result = proc.stdout.strip()
+            elif system == "Linux":
+                # zenity bevorzugt, kdialog als Fallback
+                if shutil.which("zenity"):
+                    proc = subprocess.run(
+                        ["zenity", "--file-selection", "--directory", "--title=Eingangs-Ordner"],
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
+                    )
+                    if proc.returncode == 0:
+                        result = proc.stdout.strip()
+                elif shutil.which("kdialog"):
+                    proc = subprocess.run(
+                        ["kdialog", "--getexistingdirectory", str(Path.home())],
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
+                    )
+                    if proc.returncode == 0:
+                        result = proc.stdout.strip()
+        except Exception:
+            pass
+
+        if result:
+            self.call_from_thread(self._set_inbox_path, Path(result))
+        # Falls kein Ergebnis: Nutzer kann manuell im Input-Feld eingeben
+
+    def _set_inbox_path(self, path: Path) -> None:
+        """Inbox-Pfad aktualisieren (im TUI-Thread)."""
+        self._inbox_path = path
+        with contextlib.suppress(NoMatches):
+            self.query_one("#wizard-path-display", Static).update(
+                f"[dim]Gewählt:[/dim] [bold]{path}[/bold]"
+            )
+            self.query_one("#wizard-path-input", Input).value = str(path)
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id == "wizard-path-input":
+            val = event.value.strip()
+            if val:
+                self._inbox_path = Path(val).expanduser()
+
+    # ------------------------------------------------------------------
+    # Schrittnavigation
+    # ------------------------------------------------------------------
+
+    def action_next_step(self) -> None:
+        """Enter: Nächster Schritt oder Abschluss."""
+        status = self.query_one("#wizard-status", Static)
+
+        if self._step == 1:
+            # Pfad aus Input-Feld übernehmen
+            with contextlib.suppress(NoMatches):
+                val = self.query_one("#wizard-path-input", Input).value.strip()
+                if val:
+                    self._inbox_path = Path(val).expanduser()
+            if not str(self._inbox_path).strip():
+                status.update("[red]Bitte einen Ordner wählen.[/red]")
+                return
+            self._step = 2
+            self._render_step()
+
+        elif self._step == 2:
+            # Gewähltes Modell über den ListView-Index ermitteln
+            self._selected_model = self._get_selected_model()
+            self._step = 3
+            self._render_step()
+
+        elif self._step == 3:
+            self._finish_setup()
+
+    def _get_selected_model(self) -> str:
+        """Aktuell in der ListView gewähltes Modell ermitteln."""
+        try:
+            model_list = self.query_one("#wizard-model-list", ListView)
+            idx = model_list.index
+            if idx is None:
+                return _WIZARD_RECOMMENDED
+
+            # Modell-Liste muss identisch zu _populate_model_list sein
+            if self._ollama_running and self._ollama_models:
+                models_slice = self._ollama_models[:10]
+            elif self._ollama_running and not self._ollama_models:
+                models_slice = ["qwen2.5:7b", "qwen2.5:3b", "qwen2.5:1.5b"]
+            else:
+                # Ollama nicht gefunden
+                models_slice = ["qwen2.5:7b", "qwen2.5:3b", "qwen2.5:1.5b", "mistral"]
+
+            if 0 <= idx < len(models_slice):
+                return models_slice[idx]
+        except (NoMatches, Exception):
+            pass
+        return _WIZARD_RECOMMENDED
+
+    def action_prev_step(self) -> None:
+        """Backspace: Schritt zurück."""
+        if self._step > 1:
+            self._step -= 1
+            self._render_step()
+
+    def action_cancel_wizard(self) -> None:
+        """Wizard abbrechen — App beenden."""
+        self.app.exit()
+
+    # ------------------------------------------------------------------
+    # Modell-ListView: Enter-Taste weiterleiten
+    # ------------------------------------------------------------------
+
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        """Enter in der Modell-Liste → nächsten Schritt."""
+        if event.list_view.id == "wizard-model-list":
+            self.action_next_step()
+
+    # ------------------------------------------------------------------
+    # Abschluss: Config schreiben
+    # ------------------------------------------------------------------
+
+    def _finish_setup(self) -> None:
+        """Config schreiben und zu HomeScreen wechseln."""
+        status = self.query_one("#wizard-status", Static)
+        status.update("[dim]Schreibe Konfiguration...[/dim]")
+        threading.Thread(target=self._write_config_and_launch, daemon=True).start()
+
+    def _write_config_and_launch(self) -> None:
+        try:
+            self._do_write_config()
+            self.call_from_thread(self._on_setup_complete)
+        except Exception as exc:
+            self.call_from_thread(self._on_setup_error, str(exc))
+
+    def _do_write_config(self) -> None:
+        """Config-Datei schreiben und Verzeichnisse anlegen."""
+        from arkiv.core.config import DEFAULT_CONFIG_DIR, DEFAULT_CONFIG_FILE
+
+        DEFAULT_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+        home = Path.home()
+        review_dir = home / "Documents" / "Kurier" / "Prüfen"
+
+        lines = [
+            "# Arkiv / Kurier Konfiguration",
+            "# https://github.com/HerrStolzier/lotse",
+            "",
+            "[llm]",
+            'provider = "ollama"',
+            f'model = "{self._selected_model}"',
+            'base_url = "http://localhost:11434"',
+            "temperature = 0.1",
+            "",
+            "[embeddings]",
+            'model = "BAAI/bge-small-en-v1.5"',
+            "",
+            "[database]",
+            'path = "~/.local/share/arkiv/arkiv.db"',
+            "",
+            f'inbox_dir = "{self._inbox_path}"',
+            f'review_dir = "{review_dir}"',
+            "",
+            "[routes.archiv]",
+            'type = "folder"',
+            f'path = "{home / "Documents" / "Kurier" / "Archiv"}"',
+            'categories = ["rechnung", "vertrag", "brief", "bescheid"]',
+            "confidence_threshold = 0.7",
+            "",
+        ]
+
+        DEFAULT_CONFIG_FILE.write_text("\n".join(lines) + "\n")
+
+        # Verzeichnisse anlegen
+        for d in (self._inbox_path, review_dir, home / "Documents" / "Kurier" / "Archiv"):
+            d.mkdir(parents=True, exist_ok=True)
+
+    def _on_setup_complete(self) -> None:
+        """Config erfolgreich geschrieben — zu HomeScreen wechseln."""
+        from arkiv.core.config import ArkivConfig
+
+        try:
+            config = ArkivConfig.load()
+        except Exception:
+            config = None
+
+        # HomeScreen aktualisieren und Wizard schließen
+        app = self.app
+        if isinstance(app, HomeScreen):
+            app._config = config  # type: ignore[attr-defined]
+        self.dismiss()
+
+    def _on_setup_error(self, error: str) -> None:
+        with contextlib.suppress(NoMatches):
+            self.query_one("#wizard-status", Static).update(
+                f"[red]Fehler beim Schreiben der Config:[/red] {error}"
+            )
+
+
+# ---------------------------------------------------------------------------
 # HomeScreen
 # ---------------------------------------------------------------------------
 
@@ -1286,6 +1752,15 @@ class HomeScreen(App[None]):
         yield Footer()
 
     def on_mount(self) -> None:
+        from arkiv.core.config import DEFAULT_CONFIG_FILE
+
+        if not DEFAULT_CONFIG_FILE.exists():
+            self.push_screen(SetupWizardScreen(), self._on_wizard_done)
+        else:
+            self.load_stats()
+
+    def _on_wizard_done(self, _result: object = None) -> None:
+        """Wird aufgerufen, nachdem der Setup-Wizard geschlossen wurde."""
         self.load_stats()
 
     def load_stats(self) -> None:
