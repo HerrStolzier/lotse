@@ -159,7 +159,7 @@ def _detect_ram() -> int:
             c_ulong = ctypes.c_ulong
 
             class MEMORYSTATUS(ctypes.Structure):
-                _fields_ = [  # noqa: RUF012
+                _fields_ = [
                     ("dwLength", c_ulong),
                     ("dwMemoryLoad", c_ulong),
                     ("dwTotalPhys", ctypes.c_uint64),
