@@ -23,9 +23,21 @@ def notify(title: str, message: str) -> None:
         logger.debug("Benachrichtigung fehlgeschlagen: %s", exc)
 
 
+def _sanitize_applescript(text: str) -> str:
+    """Escape all characters that could break AppleScript string boundaries."""
+    return (
+        text.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("'", "\\'")
+        .replace("\n", " ")
+        .replace("\r", " ")
+        .replace("\t", " ")
+    )
+
+
 def _notify_macos(title: str, message: str) -> None:
-    safe_title = title.replace('"', '\\"').replace("'", "\\'")
-    safe_message = message.replace('"', '\\"').replace("'", "\\'")
+    safe_title = _sanitize_applescript(title)
+    safe_message = _sanitize_applescript(message)
     script = f'display notification "{safe_message}" with title "{safe_title}"'
     subprocess.run(
         ["osascript", "-e", script],
