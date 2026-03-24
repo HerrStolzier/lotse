@@ -1704,7 +1704,7 @@ class SetupWizardScreen(Screen[None]):
 
         lines = [
             "# Kurier Konfiguration",
-            "# https://github.com/HerrStolzier/lotse",
+            "# https://github.com/HerrStolzier/kurier",
             "",
             "[llm]",
             'provider = "ollama"',

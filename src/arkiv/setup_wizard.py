@@ -497,7 +497,7 @@ def _write_config(llm_config: dict[str, Any], routes: dict[str, Any]) -> None:
 
     lines = [
         "# Kurier Configuration",
-        "# https://github.com/HerrStolzier/lotse",
+        "# https://github.com/HerrStolzier/kurier",
         "",
         "[llm]",
         f'provider = "{llm_config["provider"]}"',

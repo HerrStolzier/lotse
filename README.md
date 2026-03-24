@@ -28,13 +28,13 @@ Arkiv takes any digital input — files, URLs, text — classifies it using AI, 
 
 ```bash
 # Install
-pipx install "kurier @ git+https://github.com/HerrStolzier/lotse.git"
+pipx install "kurier @ git+https://github.com/HerrStolzier/kurier.git"
 
 # Make sure Ollama is running with a model
 ollama pull qwen2.5:7b
 
-# Start Arkiv
-arkiv
+# Start Kurier
+kurier
 ```
 
 That's it. `kurier` launches the interactive TUI where you can classify files, search, monitor your inbox, and more — all from one interface.
@@ -42,10 +42,10 @@ That's it. `kurier` launches the interactive TUI where you can classify files, s
 > **Alternative install methods:**
 > ```bash
 > # With pip (requires a virtual environment)
-> pip install "kurier @ git+https://github.com/HerrStolzier/lotse.git"
+> pip install "kurier @ git+https://github.com/HerrStolzier/kurier.git"
 >
 > # With uv
-> uv pip install "kurier @ git+https://github.com/HerrStolzier/lotse.git"
+> uv pip install "kurier @ git+https://github.com/HerrStolzier/kurier.git"
 > ```
 
 ### CLI Commands
@@ -107,7 +107,7 @@ Start the API server for external integrations, webhooks, and mobile capture:
 
 ```bash
 # Install API dependencies
-uv pip install "kurier[api] @ git+https://github.com/HerrStolzier/lotse.git"
+uv pip install "kurier[api] @ git+https://github.com/HerrStolzier/kurier.git"
 
 # Start the server
 kurier serve
@@ -207,8 +207,8 @@ src/arkiv/
 
 ```bash
 # Clone
-git clone https://github.com/HerrStolzier/lotse.git
-cd lotse
+git clone https://github.com/HerrStolzier/kurier.git
+cd kurier
 
 # Create venv and install in development mode
 uv venv && source .venv/bin/activate
