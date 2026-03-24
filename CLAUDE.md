@@ -128,6 +128,16 @@ Nur `dev` ist optional: `pip install kurier[dev]`
 
 B008 and RUF012 are ignored globally — B008: typer.Argument/Option in defaults is the standard pattern. RUF012: ctypes _fields_ false positive.
 
+## Code Quality — Pflicht vor jedem Commit/Push
+
+Builders und Agents MÜSSEN nach Code-Änderungen diese 3 Checks laufen lassen:
+```bash
+ruff check src/                              # Lint
+mypy src/arkiv/ --ignore-missing-imports     # Type check (strict!)
+pytest tests/ -x -q                          # Tests
+```
+**mypy --strict ist aktiv** — alle Funktionen brauchen Return-Type-Annotations, generische Typen brauchen Parameter (`dict[str, object]` nicht `dict`), und `subprocess.run()` muss `text=True` haben wenn `.stdout` als `str` verwendet wird.
+
 ## Testing
 
 - Unit tests mock LLM calls via `patch("arkiv.core.classifier.completion")`.
