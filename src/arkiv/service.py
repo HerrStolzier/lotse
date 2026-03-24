@@ -129,7 +129,7 @@ def _install_macos(kurier_path: str) -> tuple[bool, str]:
 
     result = _run(["launchctl", "load", "-w", str(PLIST_PATH)])
     if result is None or result.returncode != 0:
-        stderr = result.stderr.decode(errors="replace").strip() if result else "Timeout"
+        stderr = result.stderr.strip() if result else "Timeout"
         return False, f"launchctl load fehlgeschlagen: {stderr}"
 
     return True, f"Dienst erfolgreich installiert und gestartet. Log: {LOG_PATH_MACOS}"
@@ -151,7 +151,7 @@ def _uninstall_macos() -> tuple[bool, str]:
     return True, "Dienst erfolgreich gestoppt und deinstalliert."
 
 
-def _status_macos() -> dict:
+def _status_macos() -> dict[str, object]:
     installed = PLIST_PATH.exists()
     running = False
     pid: int | None = None
@@ -160,7 +160,7 @@ def _status_macos() -> dict:
         result = _run(["launchctl", "list", "local.kurier.watch"])
         if result and result.returncode == 0:
             running = True
-            output = result.stdout.decode(errors="replace")
+            output = result.stdout
             for line in output.splitlines():
                 line = line.strip()
                 if line.startswith('"PID"'):
@@ -206,7 +206,7 @@ def _install_linux(kurier_path: str) -> tuple[bool, str]:
     ):
         result = _run(cmd)
         if result is None or result.returncode != 0:
-            stderr = result.stderr.decode(errors="replace").strip() if result else "Timeout"
+            stderr = result.stderr.strip() if result else "Timeout"
             return False, f"'{' '.join(cmd)}' fehlgeschlagen: {stderr}"
 
     return True, "Dienst erfolgreich installiert und gestartet (systemd --user)."
@@ -229,20 +229,20 @@ def _uninstall_linux() -> tuple[bool, str]:
     return True, "Dienst erfolgreich gestoppt und deinstalliert."
 
 
-def _status_linux() -> dict:
+def _status_linux() -> dict[str, object]:
     installed = SYSTEMD_PATH.exists()
     running = False
 
     if installed:
         result = _run(["systemctl", "--user", "is-active", "kurier"])
-        if result and result.stdout.decode(errors="replace").strip() == "active":
+        if result and result.stdout.strip() == "active":
             running = True
 
     # Fetch recent journal entries; fails gracefully if journalctl unavailable
     recent_logs: list[str] = []
     result = _run(["journalctl", "--user", "-u", "kurier", "-n", "20", "--no-pager"])
     if result and result.returncode == 0:
-        recent_logs = result.stdout.decode(errors="replace").splitlines()
+        recent_logs = result.stdout.splitlines()
 
     return {
         "installed": installed,
@@ -261,7 +261,7 @@ def _status_linux() -> dict:
 def _run(cmd: list[str]) -> subprocess.CompletedProcess[str] | None:
     """Run a subprocess with timeout=10. Returns None on timeout."""
     try:
-        return subprocess.run(cmd, timeout=10, capture_output=True, check=False)
+        return subprocess.run(cmd, timeout=10, capture_output=True, text=True, check=False)
     except subprocess.TimeoutExpired:
         logger.warning("Befehl '%s' hat das Zeitlimit überschritten.", " ".join(cmd))
         return None
