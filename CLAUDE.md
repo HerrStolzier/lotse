@@ -62,7 +62,8 @@ src/arkiv/
 │   └── styles.css         # Dark theme with amber accent
 ├── core/
 │   ├── config.py          # TOML config via pydantic-settings (XDG paths)
-│   ├── classifier.py      # LLM classification via LiteLLM (provider-agnostic)
+│   ├── llm.py             # Direct HTTP LLM calls (Ollama, OpenAI, Anthropic) — NO litellm
+│   ├── classifier.py      # LLM classification via llm.py (provider-agnostic)
 │   ├── router.py          # Category-based routing with fan-out (folder + webhook)
 │   ├── engine.py          # Pipeline orchestrator: extract → classify → embed → route → store
 │   ├── embeddings.py      # FastEmbed wrapper (BAAI/bge-small-en-v1.5, 384-dim)
@@ -87,7 +88,8 @@ plugins/arkiv-webhook/     # First-party plugin: webhook routes (Slack, Discord,
 
 ## Key Patterns
 
-- **LLM calls go through LiteLLM** (`core/classifier.py`). Ollama uses `ollama_chat/` prefix (NOT `ollama/`) — the plain prefix uses legacy `/api/generate` which drops message content. Needs explicit `api_base`.
+- **LLM calls go through `core/llm.py`** (eigene Implementierung, kein litellm). Drei Provider: Ollama (HTTP POST /api/chat), OpenAI-kompatibel (/v1/chat/completions), Anthropic (/v1/messages). Provider wird automatisch erkannt via model-Name und api_base.
+- **litellm wurde entfernt** (Supply-Chain-Attack März 2026). NICHT wieder hinzufügen. Alternative: `core/llm.py` mit ~130 Zeilen direkten httpx-Calls.
 - **Retry-Logic**: Classifier hat 3 Retries mit exponential Backoff (1s, 3s, 9s). Timeout 30s pro Call.
 - **Transaction-Safety**: `ingest_file()` speichert erst als `pending`, dann `routed`/`failed`. Kein Datenverlust bei Routing-Fehler.
 - **Qwen 3.5 has "thinking mode"** that adds ~100s overhead per call. Use Qwen 2.5 for classification (no thinking, fast, accurate). Models below 7B tend to misclassify.
@@ -121,8 +123,9 @@ Key sections:
 
 ## Optional Dependencies
 
-API, OCR, und TUI sind in den Haupt-Dependencies enthalten.
+Alle Dependencies in main (kein litellm!): httpx, typer, rich, textual, fastapi, etc.
 Nur `dev` ist optional: `pip install kurier[dev]`
+**httpx** statt litellm für LLM-Calls — ~130 Zeilen eigener Code in `core/llm.py`
 
 ## Ruff
 
