@@ -8,13 +8,8 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-import litellm
-from litellm import completion
-
 from arkiv.core.config import ArkivConfig, LLMConfig
-
-# Disable LiteLLM telemetry — user data must never leave the system
-litellm.telemetry = False
+from arkiv.core.llm import completion
 
 logger = logging.getLogger(__name__)
 
