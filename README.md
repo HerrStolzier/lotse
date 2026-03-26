@@ -92,7 +92,7 @@ confidence_threshold = 0.6
 
 ## LLM Providers
 
-Arkiv supports any LLM provider via [LiteLLM](https://github.com/BerriAI/litellm):
+Arkiv supports any LLM provider via direct HTTP calls (`core/llm.py`):
 
 | Provider | Config |
 |----------|--------|

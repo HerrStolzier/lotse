@@ -68,7 +68,9 @@ src/arkiv/
 │   ├── engine.py          # Pipeline orchestrator: extract → classify → embed → route → store
 │   ├── embeddings.py      # FastEmbed wrapper (BAAI/bge-small-en-v1.5, 384-dim)
 │   ├── ocr.py             # PyMuPDF native + Tesseract fallback
-│   └── auditor.py         # Self-audit: duplicates, misclassifications, orphaned files
+│   ├── auditor.py         # Self-audit: duplicates, misclassifications, orphaned files
+│   ├── auth.py            # API-Key-Authentifizierung (x-api-key Header, KURIER_API_KEY env)
+│   └── upload.py          # Multipart-Upload-Handling für /ingest/file Endpoint
 ├── db/
 │   └── store.py           # SQLite + FTS5 + sqlite-vec (hybrid search with RRF)
 ├── dashboard/

@@ -40,3 +40,4 @@ coverage.xml
 *.db
 *.db-journal
 *.db-wal
+.aider*
