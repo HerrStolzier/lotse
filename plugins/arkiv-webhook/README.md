@@ -1,6 +1,6 @@
 # arkiv-webhook
 
-Webhook route plugin for [Arkiv](https://github.com/HerrStolzier/lotse). Sends classified items to any webhook URL — Slack, Discord, n8n, Zapier, or custom endpoints.
+Webhook route plugin for [Kurier](https://github.com/HerrStolzier/kurier). Sends classified items to any webhook URL — Slack, Discord, n8n, Zapier, or custom endpoints.
 
 ## Installation
 
@@ -10,7 +10,7 @@ pip install arkiv-webhook
 
 ## Configuration
 
-Add webhook routes to your `~/.config/arkiv/config.toml`:
+Add webhook routes to your `~/.config/kurier/config.toml`:
 
 ```toml
 # Send all invoices to a Slack channel

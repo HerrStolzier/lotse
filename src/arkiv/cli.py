@@ -380,7 +380,10 @@ def status(
     elif ocr["pymupdf"]:
         console.print("[dim]OCR:[/dim]     [yellow]partial[/yellow] (PyMuPDF only, no Tesseract)")
     else:
-        console.print("[dim]OCR:[/dim]     [dim]not installed[/dim] (pip install arkiv[ocr])")
+        console.print(
+            "[dim]OCR:[/dim]     [dim]not installed[/dim] "
+            "(reinstall kurier and ensure PyMuPDF/Tesseract are available)"
+        )
     console.print()
 
     if not cfg.database.path.exists():
@@ -892,15 +895,15 @@ def serve(
         help="API key required for non-localhost access (header: x-api-key).",
     ),
 ) -> None:
-    """Start the REST API server (requires: pip install arkiv[api])."""
+    """Start the REST API server."""
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
 
     try:
         import uvicorn
     except ImportError:
-        console.print("[red]Missing dependency.[/red] Install with:")
-        console.print("  pip install arkiv[api]")
+        console.print("[red]Missing dependency.[/red] Reinstall Kurier to restore API packages:")
+        console.print('  pip install "kurier @ git+https://github.com/HerrStolzier/kurier.git"')
         raise typer.Exit(1) from None
 
     if host != "127.0.0.1":

@@ -103,13 +103,9 @@ Arkiv supports any LLM provider via direct HTTP calls (`core/llm.py`):
 
 ## REST API
 
-Start the API server for external integrations, webhooks, and mobile capture:
+The API server ships with the main package, so if `kurier` is already installed you can start it directly:
 
 ```bash
-# Install API dependencies
-uv pip install "kurier[api] @ git+https://github.com/HerrStolzier/kurier.git"
-
-# Start the server
 kurier serve
 # → http://127.0.0.1:8790/docs (Swagger UI)
 ```
@@ -212,14 +208,18 @@ cd kurier
 
 # Create venv and install in development mode
 uv venv && source .venv/bin/activate
-uv pip install -e ".[dev,api,ocr,tui]"
+uv pip install -e ".[dev]"
 
 # Run tests
-pytest
+pytest tests/ -x -q
+
+# Plugin tests
+uv pip install -e plugins/arkiv-webhook
+pytest --rootdir=plugins/arkiv-webhook --override-ini="testpaths=plugins/arkiv-webhook/tests" plugins/arkiv-webhook/tests/
 
 # Lint + type check
 ruff check src/
-mypy src/
+mypy src/arkiv/ --ignore-missing-imports
 ```
 
 ## License

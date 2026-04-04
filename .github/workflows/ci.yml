@@ -24,7 +24,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,api,ocr]"
+          pip install -e ".[dev]"
+          pip install -e plugins/arkiv-webhook
 
       - name: Lint with ruff
         run: ruff check src/
@@ -32,8 +33,11 @@ jobs:
       - name: Type check with mypy
         run: mypy src/arkiv/ --ignore-missing-imports
 
-      - name: Run tests
-        run: pytest --cov=arkiv --cov-report=xml
+      - name: Run core tests
+        run: pytest tests/ --cov=arkiv --cov-report=xml
+
+      - name: Run plugin tests
+        run: pytest --rootdir=plugins/arkiv-webhook --override-ini="testpaths=plugins/arkiv-webhook/tests" plugins/arkiv-webhook/tests/
 
   lint:
     runs-on: ubuntu-latest
