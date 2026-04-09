@@ -309,6 +309,11 @@ def search(
         "-m",
         help="Search mode: 'auto' (hybrid), 'fts' (keyword), 'vec' (semantic)",
     ),
+    memory: bool = typer.Option(
+        False,
+        "--memory",
+        help="Use the local LLM to rewrite vague queries before retrieval",
+    ),
     config: Path | None = typer.Option(None, "--config", "-c"),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ) -> None:
@@ -321,7 +326,7 @@ def search(
     from arkiv.core.engine import Engine
 
     engine = Engine(cfg)
-    results = engine.search(query, limit=limit, mode=mode)
+    results, assist = engine.search_with_assist(query, limit=limit, mode=mode, memory=memory)
 
     if not results:
         console.print("[dim]No results found.[/dim]")
@@ -333,18 +338,25 @@ def search(
     else:
         console.print("[dim]Search mode: keyword (FTS5)[/dim]\n")
 
+    if memory and assist and assist.rewrites:
+        console.print(f"[dim]Query assist: {', '.join(assist.rewrites)}[/dim]\n")
+
     table = Table(title=f"Results for '{query}'")
     table.add_column("ID", style="dim")
+    table.add_column("Titel", style="bold")
     table.add_column("Category", style="cyan")
     table.add_column("Summary")
+    table.add_column("Warum")
     table.add_column("Route", style="green")
     table.add_column("Date", style="dim")
 
     for item in results:
         table.add_row(
             str(item["id"]),
+            (item.get("display_title") or item.get("destination_name") or "")[:40],
             item["category"],
             (item["summary"] or "")[:60],
+            (item.get("match_reason") or "")[:50],
             item["route_name"],
             item["created_at"][:10],
         )

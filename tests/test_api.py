@@ -52,6 +52,7 @@ def test_ingest_text(client: TestClient) -> None:
             "summary": "A test note",
             "tags": ["test"],
             "language": "en",
+            "suggested_filename": "Testnotiz Python Async",
         }
     )
 
@@ -83,6 +84,7 @@ def test_ingest_file(client: TestClient, tmp_path: Path) -> None:
             "summary": "Python tutorial",
             "tags": ["python"],
             "language": "en",
+            "suggested_filename": "Python Tutorial",
         }
     )
 
@@ -121,6 +123,7 @@ def test_search_after_ingest(client: TestClient) -> None:
             "summary": "Telekom Rechnung März",
             "tags": ["telekom"],
             "language": "de",
+            "suggested_filename": "Rechnung Telekom März 2026",
         }
     )
 
@@ -135,9 +138,82 @@ def test_search_after_ingest(client: TestClient) -> None:
     data = resp.json()
     assert data["count"] >= 1
     assert data["results"][0]["category"] == "rechnung"
+    assert data["results"][0]["display_title"] == "Rechnung Telekom März 2026"
+
+
+def test_memory_search_uses_query_assist_rewrites(client: TestClient) -> None:
+    classifier_response = MagicMock()
+    classifier_response.choices = [MagicMock()]
+    classifier_response.choices[0].message.content = json.dumps(
+        {
+            "category": "rechnung",
+            "confidence": 0.94,
+            "summary": "Mobilfunkrechnung März 2026",
+            "tags": ["rechnung"],
+            "language": "de",
+            "suggested_filename": "Rechnung Telekom März 2026",
+        }
+    )
+    search_assist_response = MagicMock()
+    search_assist_response.choices = [MagicMock()]
+    search_assist_response.choices[0].message.content = json.dumps(
+        {
+            "rewrites": ["Telekom Rechnung März 2026", "Mobilfunk Rechnung Telekom"],
+            "filters": {"category": ["rechnung"], "organizations": ["Telekom"]},
+            "notes": "Die Anfrage klingt nach einer Telekom-Rechnung.",
+        }
+    )
+
+    with patch("arkiv.core.classifier.completion", return_value=classifier_response):
+        client.post(
+            "/ingest/text",
+            data={"text": "Telekom Rechnung für März 2026"},
+        )
+
+    with patch("arkiv.core.search_assistant.completion", return_value=search_assist_response):
+        resp = client.get(
+            "/search",
+            params={"q": "Internetanbieter Frühling", "mode": "fts", "memory": "true"},
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["memory"] is True
+    assert data["count"] >= 1
+    assert data["assist"]["rewrites"][0] == "Telekom Rechnung März 2026"
+    assert data["results"][0]["display_title"] == "Rechnung Telekom März 2026"
+    assert data["results"][0]["match_reason"].startswith("Passt wegen")
 
 
 def test_recent_items(client: TestClient) -> None:
     resp = client.get("/recent")
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+def test_recent_items_return_minimized_titles(client: TestClient) -> None:
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = json.dumps(
+        {
+            "category": "brief",
+            "confidence": 0.88,
+            "summary": "Schreiben der Krankenkasse",
+            "tags": ["krankenkasse"],
+            "language": "de",
+            "suggested_filename": "Beitragsschreiben Krankenkasse",
+        }
+    )
+
+    with patch("arkiv.core.classifier.completion", return_value=mock_response):
+        client.post(
+            "/ingest/text",
+            data={"text": "Schreiben der Krankenkasse wegen neuem Beitrag"},
+        )
+
+    resp = client.get("/recent")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["display_title"] == "Beitragsschreiben Krankenkasse"
+    assert "original_path" not in data[0]

@@ -1,0 +1,220 @@
+[
+  {
+    "id": "invoice_telekom_spring_2026",
+    "query": "die Telekom-Rechnung vom Fruehling 2026",
+    "document_type": "rechnung",
+    "expected": {
+      "rewrites": [
+        "Telekom Rechnung Fruehling 2026",
+        "Internetrechnung Telekom 2026",
+        "Telekom Rechnung Maerz April Mai 2026"
+      ],
+      "filters": {
+        "category": ["rechnung"],
+        "organizations": ["Telekom"],
+        "date_hints": ["2026", "Fruehling"]
+      },
+      "notes": "Nutzer sucht wahrscheinlich eine Telekom-Rechnung aus dem Fruehjahr 2026."
+    }
+  },
+  {
+    "id": "invoice_mobile_provider_unknown",
+    "query": "die Handyrechnung mit Telekom oder Vodafone",
+    "document_type": "rechnung",
+    "expected": {
+      "rewrites": [
+        "Handyrechnung Telekom",
+        "Mobilfunk Rechnung Vodafone",
+        "Telekom Vodafone Rechnung"
+      ],
+      "filters": {
+        "category": ["rechnung"],
+        "organizations": ["Telekom", "Vodafone"],
+        "date_hints": []
+      },
+      "notes": "Nutzer kennt den Anbieter nicht sicher, erinnert sich aber an Mobilfunk."
+    }
+  },
+  {
+    "id": "insurance_health_contribution_letter",
+    "query": "dieses Schreiben von meiner Krankenkasse wegen Beitrag",
+    "document_type": "brief",
+    "expected": {
+      "rewrites": [
+        "Krankenkasse Schreiben Beitrag",
+        "Krankenversicherung Brief Beitrag",
+        "Beitragsaenderung Krankenkasse"
+      ],
+      "filters": {
+        "category": ["brief", "bescheid"],
+        "organizations": ["Krankenkasse"],
+        "date_hints": []
+      },
+      "notes": "Es klingt eher nach Mitteilung oder Brief als nach Rechnung."
+    }
+  },
+  {
+    "id": "insurance_allianz_document",
+    "query": "das eingescannte Dokument von der Allianz",
+    "document_type": "brief",
+    "expected": {
+      "rewrites": [
+        "Allianz Schreiben",
+        "Allianz Dokument Scan",
+        "Versicherung Allianz Brief"
+      ],
+      "filters": {
+        "category": ["brief", "vertrag", "rechnung"],
+        "organizations": ["Allianz"],
+        "date_hints": []
+      },
+      "notes": "Dokumenttyp ist noch offen, Allianz ist das wichtigste Suchsignal."
+    }
+  },
+  {
+    "id": "rental_contract_wuerzburg",
+    "query": "mein Mietvertrag aus Wuerzburg",
+    "document_type": "vertrag",
+    "expected": {
+      "rewrites": [
+        "Mietvertrag Wuerzburg",
+        "Wohnung Vertrag Wuerzburg",
+        "Mietvertrag Adresse Wuerzburg"
+      ],
+      "filters": {
+        "category": ["vertrag"],
+        "organizations": [],
+        "date_hints": [],
+        "location_hints": ["Wuerzburg"]
+      },
+      "notes": "Nutzer erinnert sich an Ort und Vertragstyp."
+    }
+  },
+  {
+    "id": "rental_contract_schillerstrasse",
+    "query": "der Vertrag fuer die Wohnung in der Schillerstrasse",
+    "document_type": "vertrag",
+    "expected": {
+      "rewrites": [
+        "Wohnung Vertrag Schillerstrasse",
+        "Mietvertrag Schillerstrasse",
+        "Vertrag Wohnung Adresse Schillerstrasse"
+      ],
+      "filters": {
+        "category": ["vertrag"],
+        "organizations": [],
+        "date_hints": [],
+        "location_hints": ["Schillerstrasse"]
+      },
+      "notes": "Die Adresse ist hier das staerkste Merkmal."
+    }
+  },
+  {
+    "id": "official_tax_letter",
+    "query": "ein amtliches Schreiben wegen Steuern",
+    "document_type": "bescheid",
+    "expected": {
+      "rewrites": [
+        "Steuer Bescheid",
+        "amtliches Schreiben Steuern",
+        "Finanzamt Bescheid"
+      ],
+      "filters": {
+        "category": ["bescheid", "brief"],
+        "organizations": ["Finanzamt"],
+        "date_hints": []
+      },
+      "notes": "Amtliches Schreiben und Steuer-Kontext deuten stark auf Bescheid."
+    }
+  },
+  {
+    "id": "official_notice_last_year",
+    "query": "dieser Bescheid von letztem Jahr",
+    "document_type": "bescheid",
+    "expected": {
+      "rewrites": [
+        "Bescheid letztes Jahr",
+        "amtlicher Bescheid Vorjahr",
+        "offizieller Bescheid letztes Jahr"
+      ],
+      "filters": {
+        "category": ["bescheid"],
+        "organizations": [],
+        "date_hints": ["letztes Jahr"]
+      },
+      "notes": "Zeitliche Einordnung ist wichtiger als der genaue Absender."
+    }
+  },
+  {
+    "id": "ocr_official_letter_unknown_filename",
+    "query": "dieses PDF, wo der Dateiname nichts sagt, aber es war ein offizieller Brief",
+    "document_type": "brief",
+    "expected": {
+      "rewrites": [
+        "offizieller Brief PDF",
+        "amtliches Schreiben Scan",
+        "offizieller Brief unbekannter Dateiname"
+      ],
+      "filters": {
+        "category": ["brief", "bescheid"],
+        "organizations": [],
+        "date_hints": []
+      },
+      "notes": "Der eigentliche Dateiname hilft nicht, daher muessen OCR, Summary und Kategorie staerker gewichtet werden."
+    }
+  },
+  {
+    "id": "ocr_health_insurance_hard_to_read",
+    "query": "das eingescannte Blatt mit kaum lesbarem Text von der Krankenkasse",
+    "document_type": "brief",
+    "expected": {
+      "rewrites": [
+        "Krankenkasse Scan Brief",
+        "eingescanntes Schreiben Krankenkasse",
+        "Krankenkasse OCR Dokument"
+      ],
+      "filters": {
+        "category": ["brief", "bescheid"],
+        "organizations": ["Krankenkasse"],
+        "date_hints": []
+      },
+      "notes": "Signal kommt eher aus Absender und OCR-Kontext als aus sauberem Titel."
+    }
+  },
+  {
+    "id": "mixed_utility_invoice",
+    "query": "irgendeine Internetrechnung von 2026",
+    "document_type": "rechnung",
+    "expected": {
+      "rewrites": [
+        "Internetrechnung 2026",
+        "Provider Rechnung 2026",
+        "Telekommunikation Rechnung 2026"
+      ],
+      "filters": {
+        "category": ["rechnung"],
+        "organizations": [],
+        "date_hints": ["2026"]
+      },
+      "notes": "Dokumenttyp und Jahr sind klar, der Anbieter noch nicht."
+    }
+  },
+  {
+    "id": "old_contract_with_address",
+    "query": "ein alter Vertrag mit Adresse drin",
+    "document_type": "vertrag",
+    "expected": {
+      "rewrites": [
+        "alter Vertrag Adresse",
+        "Vertrag mit Anschrift",
+        "aelterer Vertrag Adresse"
+      ],
+      "filters": {
+        "category": ["vertrag"],
+        "organizations": [],
+        "date_hints": ["alt"]
+      },
+      "notes": "Die Suche sollte auf Vertragsdokumente mit Adresshinweisen fokussieren."
+    }
+  }
+]

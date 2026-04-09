@@ -23,6 +23,7 @@ def test_record_and_retrieve(store: Store) -> None:
         tags=["telekom", "rechnung", "telefon"],
         language="de",
         route_name="archiv",
+        suggested_filename="Rechnung Telekom März 2026",
     )
     assert item_id > 0
 
@@ -30,6 +31,9 @@ def test_record_and_retrieve(store: Store) -> None:
     assert len(recent) == 1
     assert recent[0]["category"] == "rechnung"
     assert recent[0]["confidence"] == 0.95
+    assert recent[0]["suggested_filename"] == "Rechnung Telekom März 2026"
+    assert recent[0]["destination_name"] == "test.pdf"
+    assert recent[0]["display_title"] == "Rechnung Telekom März 2026"
 
 
 def test_fts_search(store: Store) -> None:
@@ -61,6 +65,24 @@ def test_fts_search(store: Store) -> None:
     results = store.search("Python")
     assert len(results) == 1
     assert results[0]["category"] == "artikel"
+
+
+def test_fts_search_finds_suggested_filename(store: Store) -> None:
+    store.record_item(
+        original_path="/tmp/scan-001.pdf",
+        destination="/archive/2026-telekom.pdf",
+        category="rechnung",
+        confidence=0.92,
+        summary="Monatsrechnung Mobilfunk",
+        tags=["telefon"],
+        language="de",
+        route_name="archiv",
+        suggested_filename="Rechnung Telekom März 2026",
+    )
+
+    results = store.search("Telekom")
+    assert len(results) == 1
+    assert results[0]["display_title"] == "Rechnung Telekom März 2026"
 
 
 def test_stats(store: Store) -> None:

@@ -11,10 +11,15 @@ from arkiv.core.classifier import Classification, Classifier
 from arkiv.core.config import ArkivConfig
 from arkiv.core.embeddings import EmbeddingEngine
 from arkiv.core.router import Router, RouteResult
+from arkiv.core.search_assistant import QueryAssist, QueryAssistant
 from arkiv.db.store import Store
 from arkiv.plugins.manager import PluginManager
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_search_text(value: str) -> str:
+    return " ".join(value.casefold().split())
 
 
 class Engine:
@@ -27,6 +32,7 @@ class Engine:
         self.store = Store(config.database.path)
         self.plugin_manager = PluginManager()
         self._embedder: EmbeddingEngine | None = None
+        self._query_assistant: QueryAssistant | None = None
 
     @property
     def embedder(self) -> EmbeddingEngine:
@@ -34,6 +40,13 @@ class Engine:
         if self._embedder is None:
             self._embedder = EmbeddingEngine(self.config.embeddings)
         return self._embedder
+
+    @property
+    def query_assistant(self) -> QueryAssistant:
+        """Lazy-load query assistant to keep normal search lightweight."""
+        if self._query_assistant is None:
+            self._query_assistant = QueryAssistant(self.config.llm, arkiv_config=self.config)
+        return self._query_assistant
 
     def ingest_file(self, file_path: Path) -> RouteResult:
         """Process a single file through the pipeline."""
@@ -89,6 +102,7 @@ class Engine:
             tags=classification.tags,
             language=classification.language,
             route_name="__pending__",
+            suggested_filename=classification.suggested_filename,
             content_text=content[:2000] if store_content else "",
             status="pending",
         )
@@ -97,12 +111,7 @@ class Engine:
         try:
             result = self.router.execute(file_path, classification)
             self.store.update_status(item_id, "routed")
-            # Patch destination and route_name after successful routing
-            self.store._conn.execute(
-                "UPDATE items SET destination = ?, route_name = ? WHERE id = ?",
-                (result.destination, result.route_name, item_id),
-            )
-            self.store._conn.commit()
+            self.store.update_routing_metadata(item_id, result.destination, result.route_name)
         except Exception as exc:
             logger.warning("Routing failed for %s: %s", file_path.name, exc)
             self.store.update_status(item_id, "failed")
@@ -142,6 +151,7 @@ class Engine:
             tags=classification.tags,
             language=classification.language,
             route_name="__text__",
+            suggested_filename=classification.suggested_filename,
             content_text=text[:2000] if self.config.database.store_content else "",
             embedding=embedding,
         )
@@ -155,8 +165,42 @@ class Engine:
             ),
         )
 
-    def search(self, query: str, limit: int = 20, mode: str = "auto") -> list[dict[str, Any]]:
-        """Search stored items. Supports keyword, semantic, and hybrid search."""
+    def search(
+        self,
+        query: str,
+        limit: int = 20,
+        mode: str = "auto",
+        memory: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Search stored items. Supports keyword, semantic, hybrid, and memory-assist."""
+        results, _ = self.search_with_assist(query, limit=limit, mode=mode, memory=memory)
+        return results
+
+    def search_with_assist(
+        self,
+        query: str,
+        limit: int = 20,
+        mode: str = "auto",
+        memory: bool = False,
+    ) -> tuple[list[dict[str, Any]], QueryAssist | None]:
+        """Search stored items and optionally return query-assist metadata."""
+        assist = self.query_assistant.assist(query) if memory else None
+        queries = assist.queries(query) if assist else [query]
+
+        if len(queries) == 1:
+            results = self._search_single_query(queries[0], limit=limit, mode=mode)
+            return self._annotate_search_results(results, query, assist), assist
+
+        results = self._search_multi_query(queries, limit=limit, mode=mode, assist=assist)
+        return self._annotate_search_results(results, query, assist), assist
+
+    def _search_single_query(
+        self,
+        query: str,
+        limit: int,
+        mode: str,
+    ) -> list[dict[str, Any]]:
+        """Run one query through the existing search pipeline."""
         query_embedding = None
         if mode in ("auto", "vec") and self.store.vec_enabled:
             try:
@@ -165,6 +209,155 @@ class Engine:
                 logger.warning("Embedding query failed, falling back to FTS: %s", e)
 
         return self.store.search(query, limit=limit, query_embedding=query_embedding, mode=mode)
+
+    def _search_multi_query(
+        self,
+        queries: list[str],
+        limit: int,
+        mode: str,
+        assist: QueryAssist | None = None,
+    ) -> list[dict[str, Any]]:
+        """Run multiple rewritten queries and merge them with a simple RRF pass."""
+        fused_scores: dict[int, float] = {}
+        fused_items: dict[int, dict[str, Any]] = {}
+        matched_queries: dict[int, list[str]] = {}
+        matched_filters: dict[int, list[str]] = {}
+        k = 60
+
+        for query_index, query in enumerate(queries):
+            per_query_limit = max(limit, 10)
+            results = self._search_single_query(query, limit=per_query_limit, mode=mode)
+            query_weight = 1.2 if query_index == 0 else 1.0
+            for rank_pos, item in enumerate(results, 1):
+                item_id = item["id"]
+                fused_scores[item_id] = fused_scores.get(item_id, 0.0) + (
+                    query_weight / (k + rank_pos)
+                )
+                fused_items[item_id] = item
+                matched_queries.setdefault(item_id, []).append(query)
+
+        if assist:
+            for item_id, item in fused_items.items():
+                filter_hits = self._match_assist_filters(item, assist)
+                if filter_hits:
+                    fused_scores[item_id] = fused_scores.get(item_id, 0.0) + (
+                        0.015 * len(filter_hits)
+                    )
+                    matched_filters[item_id] = filter_hits
+
+        top_ids = sorted(
+            fused_scores,
+            key=lambda item_id: fused_scores[item_id],
+            reverse=True,
+        )[:limit]
+        merged_results: list[dict[str, Any]] = []
+        for item_id in top_ids:
+            item = dict(fused_items[item_id])
+            item["memory_score"] = fused_scores[item_id]
+            item["matched_queries"] = matched_queries.get(item_id, [])
+            item["matched_filters"] = matched_filters.get(item_id, [])
+            merged_results.append(item)
+        return merged_results
+
+    def _match_assist_filters(
+        self,
+        item: dict[str, Any],
+        assist: QueryAssist,
+    ) -> list[str]:
+        """Return human-readable filter matches for an item."""
+        hits: list[str] = []
+
+        normalized_category = _normalize_search_text(item.get("category", ""))
+        for category in assist.filters.get("category", []):
+            if normalized_category == _normalize_search_text(category):
+                hits.append(f"Kategorie: {category}")
+
+        haystack_parts = [
+            item.get("display_title", ""),
+            item.get("destination_name", ""),
+            item.get("summary", ""),
+            item.get("tags", ""),
+            item.get("original_path", ""),
+        ]
+        haystack = _normalize_search_text(" ".join(str(part) for part in haystack_parts if part))
+
+        for key, label in (
+            ("organizations", "Organisation"),
+            ("topics", "Thema"),
+            ("date_hints", "Zeit"),
+        ):
+            for value in assist.filters.get(key, []):
+                normalized_value = _normalize_search_text(value)
+                if normalized_value and normalized_value in haystack:
+                    hits.append(f"{label}: {value}")
+
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for hit in hits:
+            key = hit.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(hit)
+        return deduped
+
+    def _annotate_search_results(
+        self,
+        results: list[dict[str, Any]],
+        original_query: str,
+        assist: QueryAssist | None,
+    ) -> list[dict[str, Any]]:
+        """Attach a short, deterministic explanation to each result."""
+        annotated: list[dict[str, Any]] = []
+        for item in results:
+            annotated_item = dict(item)
+            annotated_item["match_reason"] = self._build_match_reason(
+                annotated_item,
+                original_query,
+                assist,
+            )
+            annotated.append(annotated_item)
+        return annotated
+
+    def _build_match_reason(
+        self,
+        item: dict[str, Any],
+        original_query: str,
+        assist: QueryAssist | None,
+    ) -> str:
+        """Build a short explanation for why this item matched."""
+        reasons: list[str] = []
+        matched_filters = item.get("matched_filters") or []
+        if matched_filters:
+            reasons.append(", ".join(matched_filters[:2]))
+
+        matched_queries = item.get("matched_queries") or []
+        rewritten_queries = [
+            query
+            for query in matched_queries
+            if _normalize_search_text(query) != _normalize_search_text(original_query)
+        ]
+        if rewritten_queries:
+            reasons.append(f"Suchvariante: {rewritten_queries[0]}")
+
+        if not reasons:
+            title = _normalize_search_text(item.get("display_title", ""))
+            summary = _normalize_search_text(item.get("summary", ""))
+            query_terms = [
+                term for term in _normalize_search_text(original_query).split() if len(term) >= 4
+            ]
+            title_hits = [term for term in query_terms if term in title]
+            summary_hits = [term for term in query_terms if term in summary]
+            if title_hits:
+                reasons.append("Titel passt zur Anfrage")
+            elif summary_hits:
+                reasons.append("Zusammenfassung passt zur Anfrage")
+            elif assist and assist.filters.get("category"):
+                reasons.append(f"Kategorie passt: {assist.filters['category'][0]}")
+            else:
+                reasons.append("Treffer aus dem Suchindex")
+
+        return "Passt wegen " + "; ".join(reasons[:2]) + "."
 
     def stats(self) -> dict[str, Any]:
         """Get processing statistics."""
@@ -177,6 +370,7 @@ class Engine:
 
         # Combine content with classification for richer embedding
         embed_text = (
+            f"{classification.suggested_filename} "
             f"{classification.summary} "
             f"{classification.category} "
             f"{' '.join(classification.tags)} "

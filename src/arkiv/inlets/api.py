@@ -76,18 +76,33 @@ class IngestResponse(BaseModel):
 
 class SearchResult(BaseModel):
     id: int
+    display_title: str
     category: str
     summary: str | None
     route_name: str
     created_at: str
+    destination_name: str | None = None
+    match_reason: str | None = None
     rrf_score: float | None = None
 
 
 class SearchResponse(BaseModel):
     query: str
     mode: str
+    memory: bool = False
     count: int
+    assist: dict[str, Any] | None = None
     results: list[SearchResult]
+
+
+class ItemListEntry(BaseModel):
+    id: int
+    display_title: str
+    category: str
+    summary: str | None
+    route_name: str
+    created_at: str
+    destination_name: str | None = None
 
 
 class StatusResponse(BaseModel):
@@ -115,6 +130,17 @@ def _get_engine() -> Engine:
 
 def _build_router() -> APIRouter:
     router = APIRouter()
+
+    def _serialize_item(item: dict[str, Any]) -> ItemListEntry:
+        return ItemListEntry(
+            id=item["id"],
+            display_title=item.get("display_title") or item.get("destination_name") or "Unbenannt",
+            category=item["category"],
+            summary=item.get("summary"),
+            route_name=item["route_name"],
+            created_at=item["created_at"],
+            destination_name=item.get("destination_name"),
+        )
 
     @router.get("/health", response_model=HealthResponse)
     async def health() -> HealthResponse:
@@ -172,6 +198,7 @@ def _build_router() -> APIRouter:
         q: Annotated[str, Query(description="Search query", min_length=1)],
         limit: Annotated[int, Query(ge=1, le=100)] = 20,
         mode: Annotated[str, Query(description="fts, vec, or auto")] = "auto",
+        memory: Annotated[bool, Query(description="Enable LLM query assist")] = False,
     ) -> SearchResponse:
         """Search processed items. Supports keyword, semantic, and hybrid search."""
         engine = _get_engine()
@@ -179,19 +206,26 @@ def _build_router() -> APIRouter:
         if mode not in ("fts", "vec", "auto"):
             raise HTTPException(status_code=422, detail="mode must be 'fts', 'vec', or 'auto'")
 
-        results = engine.search(q, limit=limit, mode=mode)
+        results, assist = engine.search_with_assist(q, limit=limit, mode=mode, memory=memory)
 
         return SearchResponse(
             query=q,
             mode=mode,
+            memory=memory,
             count=len(results),
+            assist=(
+                {
+                    "rewrites": assist.rewrites,
+                    "filters": assist.filters,
+                    "notes": assist.notes,
+                }
+                if assist
+                else None
+            ),
             results=[
                 SearchResult(
-                    id=r["id"],
-                    category=r["category"],
-                    summary=r.get("summary"),
-                    route_name=r["route_name"],
-                    created_at=r["created_at"],
+                    **_serialize_item(r).model_dump(),
+                    match_reason=r.get("match_reason"),
                     rrf_score=r.get("rrf_score"),
                 )
                 for r in results
@@ -213,13 +247,13 @@ def _build_router() -> APIRouter:
             embeddings=s.get("embeddings"),
         )
 
-    @router.get("/recent")
+    @router.get("/recent", response_model=list[ItemListEntry])
     async def recent_items(
         limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    ) -> list[dict[str, Any]]:
+    ) -> list[ItemListEntry]:
         """Get most recently processed items."""
         engine = _get_engine()
         result: list[dict[str, Any]] = engine.store.recent(limit=limit)
-        return result
+        return [_serialize_item(item) for item in result]
 
     return router

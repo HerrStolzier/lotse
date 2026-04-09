@@ -73,6 +73,7 @@ def test_upload_partial(client: TestClient) -> None:
             "summary": "Test invoice",
             "tags": ["test"],
             "language": "de",
+            "suggested_filename": "Testrechnung April 2026",
         }
     )
 
@@ -97,6 +98,7 @@ def test_search_after_upload(client: TestClient) -> None:
             "summary": "Python tutorial",
             "tags": ["python"],
             "language": "en",
+            "suggested_filename": "Python Tutorial",
         }
     )
 
@@ -109,6 +111,49 @@ def test_search_after_upload(client: TestClient) -> None:
     resp = client.get("/dashboard/partials/search", params={"q": "Python"})
     assert resp.status_code == 200
     assert "Python tutorial" in resp.text
+    assert "Python Tutorial" in resp.text
+
+
+def test_search_partial_shows_memory_assist(client: TestClient) -> None:
+    classifier_response = MagicMock()
+    classifier_response.choices = [MagicMock()]
+    classifier_response.choices[0].message.content = json.dumps(
+        {
+            "category": "rechnung",
+            "confidence": 0.94,
+            "summary": "Telekom Rechnung März",
+            "tags": ["telekom"],
+            "language": "de",
+            "suggested_filename": "Rechnung Telekom März 2026",
+        }
+    )
+    assist_response = MagicMock()
+    assist_response.choices = [MagicMock()]
+    assist_response.choices[0].message.content = json.dumps(
+        {
+            "rewrites": ["Telekom Rechnung März 2026", "Mobilfunk Rechnung Telekom"],
+            "filters": {"category": ["rechnung"], "organizations": ["Telekom"]},
+            "notes": "Das klingt nach einer Telekom-Rechnung.",
+        }
+    )
+
+    with patch("arkiv.core.classifier.completion", return_value=classifier_response):
+        client.post(
+            "/dashboard/partials/upload",
+            files={"file": ("scan.txt", b"Telekom Rechnung Maerz", "text/plain")},
+        )
+
+    with patch("arkiv.core.search_assistant.completion", return_value=assist_response):
+        resp = client.get(
+            "/dashboard/partials/search",
+            params={"q": "Internetanbieter Frühling", "memory": "true"},
+        )
+
+    assert resp.status_code == 200
+    assert "KI-Hinweis" in resp.text
+    assert "Telekom Rechnung März 2026" in resp.text
+    assert "Passt wegen" in resp.text
+    assert "Suchvariante" in resp.text or "Kategorie" in resp.text
 
 
 def test_recent_shows_items_after_upload(client: TestClient) -> None:
@@ -121,6 +166,7 @@ def test_recent_shows_items_after_upload(client: TestClient) -> None:
             "summary": "A quick note",
             "tags": [],
             "language": "en",
+            "suggested_filename": "Kurze Notiz",
         }
     )
 
@@ -134,3 +180,4 @@ def test_recent_shows_items_after_upload(client: TestClient) -> None:
     assert resp.status_code == 200
     assert "A quick note" in resp.text
     assert "notiz" in resp.text
+    assert "Kurze Notiz" in resp.text

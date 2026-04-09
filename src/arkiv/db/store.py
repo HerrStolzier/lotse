@@ -11,11 +11,14 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-SCHEMA = """\
+TABLE_SCHEMA = """\
 CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     original_path TEXT NOT NULL,
     destination TEXT,
+    suggested_filename TEXT,
+    destination_name TEXT,
+    display_title TEXT,
     category TEXT NOT NULL,
     confidence REAL NOT NULL,
     summary TEXT,
@@ -26,40 +29,52 @@ CREATE TABLE IF NOT EXISTS items (
     status TEXT NOT NULL DEFAULT 'routed',  -- pending, routed, failed, undone
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+"""
 
+FTS_SCHEMA = """\
 CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
-    original_path, category, summary, tags, content_text,
+    original_path, suggested_filename, destination_name, display_title,
+    category, summary, tags, content_text,
     content='items',
     content_rowid='id'
 );
 
 -- Triggers to keep FTS in sync
 CREATE TRIGGER IF NOT EXISTS items_ai AFTER INSERT ON items BEGIN
-    INSERT INTO items_fts(rowid, original_path, category, summary, tags, content_text)
-    VALUES (new.id, new.original_path, new.category, new.summary, new.tags, new.content_text);
+    INSERT INTO items_fts(
+        rowid, original_path, suggested_filename, destination_name,
+        display_title, category, summary, tags, content_text
+    )
+    VALUES (
+        new.id, new.original_path, new.suggested_filename, new.destination_name,
+        new.display_title, new.category, new.summary, new.tags, new.content_text
+    );
 END;
 
 CREATE TRIGGER IF NOT EXISTS items_ad AFTER DELETE ON items BEGIN
     INSERT INTO items_fts(
-        items_fts, rowid, original_path, category, summary, tags, content_text
+        items_fts, rowid, original_path, suggested_filename, destination_name,
+        display_title, category, summary, tags, content_text
     ) VALUES (
-        'delete', old.id, old.original_path, old.category,
-        old.summary, old.tags, old.content_text
+        'delete', old.id, old.original_path, old.suggested_filename, old.destination_name,
+        old.display_title, old.category, old.summary, old.tags, old.content_text
     );
 END;
 
 CREATE TRIGGER IF NOT EXISTS items_au AFTER UPDATE ON items BEGIN
     INSERT INTO items_fts(
-        items_fts, rowid, original_path, category, summary, tags, content_text
+        items_fts, rowid, original_path, suggested_filename, destination_name,
+        display_title, category, summary, tags, content_text
     ) VALUES (
-        'delete', old.id, old.original_path, old.category,
-        old.summary, old.tags, old.content_text
+        'delete', old.id, old.original_path, old.suggested_filename, old.destination_name,
+        old.display_title, old.category, old.summary, old.tags, old.content_text
     );
     INSERT INTO items_fts(
-        rowid, original_path, category, summary, tags, content_text
+        rowid, original_path, suggested_filename, destination_name,
+        display_title, category, summary, tags, content_text
     ) VALUES (
-        new.id, new.original_path, new.category,
-        new.summary, new.tags, new.content_text
+        new.id, new.original_path, new.suggested_filename, new.destination_name,
+        new.display_title, new.category, new.summary, new.tags, new.content_text
     );
 END;
 """
@@ -86,6 +101,27 @@ def _load_sqlite_vec(conn: sqlite3.Connection) -> bool:
         return False
 
 
+def _path_name(value: str | None) -> str:
+    """Return the basename of a path-like string, or an empty string."""
+    if not value:
+        return ""
+    return Path(value).name
+
+
+def _display_title(
+    *,
+    suggested_filename: str | None,
+    destination_name: str | None,
+    original_path: str,
+) -> str:
+    """Pick the most useful human-readable title for search and display."""
+    if suggested_filename and suggested_filename.strip():
+        return suggested_filename.strip()
+    if destination_name and destination_name.strip():
+        return destination_name.strip()
+    return _path_name(original_path) or original_path
+
+
 class Store:
     """SQLite-backed item store with full-text search and optional vector search."""
 
@@ -104,9 +140,12 @@ class Store:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
-        self._migrate_fts_if_needed()
-        self._conn.executescript(SCHEMA)
+        self._conn.executescript(TABLE_SCHEMA)
         self._migrate_status_column_if_needed()
+        self._migrate_title_columns_if_needed()
+        self._migrate_fts_if_needed()
+        self._conn.executescript(FTS_SCHEMA)
+        self._backfill_title_fields_if_needed()
 
         # Try to enable vector search
         self._vec_enabled = _load_sqlite_vec(self._conn)
@@ -117,14 +156,20 @@ class Store:
             logger.info("Vector search disabled (install sqlite-vec for semantic search)")
 
     def _migrate_fts_if_needed(self) -> None:
-        """Recreate FTS table if schema has changed (e.g., content_text added)."""
+        """Recreate FTS table if schema has changed."""
         try:
             # Check if items_fts exists and has the right columns
             row = self._conn.execute(
                 "SELECT sql FROM sqlite_master WHERE name = 'items_fts'"
             ).fetchone()
-            if row and "content_text" not in (row[0] or ""):
-                logger.info("Migrating FTS index to include content_text")
+            required_columns = (
+                "content_text",
+                "suggested_filename",
+                "destination_name",
+                "display_title",
+            )
+            if row and any(column not in (row[0] or "") for column in required_columns):
+                logger.info("Migrating FTS index to include title signals")
                 self._conn.executescript("""
                     DROP TRIGGER IF EXISTS items_ai;
                     DROP TRIGGER IF EXISTS items_ad;
@@ -145,6 +190,51 @@ class Store:
             if "duplicate column name" not in str(e).lower():
                 logger.debug("Status column migration: %s", e)
 
+    def _migrate_title_columns_if_needed(self) -> None:
+        """Add memory-search title columns for older databases."""
+        columns = (
+            ("suggested_filename", "TEXT"),
+            ("destination_name", "TEXT"),
+            ("display_title", "TEXT"),
+        )
+        for column_name, column_type in columns:
+            try:
+                self._conn.execute(f"ALTER TABLE items ADD COLUMN {column_name} {column_type}")
+                self._conn.commit()
+                logger.info("Migrated items table: added %s column", column_name)
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" not in str(e).lower():
+                    logger.debug("Title column migration for %s: %s", column_name, e)
+
+    def _backfill_title_fields_if_needed(self) -> None:
+        """Fill derived title fields for existing rows after migrations."""
+        rows = self._conn.execute(
+            """SELECT id, original_path, destination, suggested_filename,
+                      destination_name, display_title
+               FROM items"""
+        ).fetchall()
+
+        updated = False
+        for row in rows:
+            destination_name = row["destination_name"] or _path_name(row["destination"])
+            display_title = row["display_title"] or _display_title(
+                suggested_filename=row["suggested_filename"],
+                destination_name=destination_name,
+                original_path=row["original_path"],
+            )
+            if destination_name != (row["destination_name"] or "") or display_title != (
+                row["display_title"] or ""
+            ):
+                self._conn.execute(
+                    "UPDATE items SET destination_name = ?, display_title = ? WHERE id = ?",
+                    (destination_name, display_title, row["id"]),
+                )
+                updated = True
+
+        if updated:
+            self._conn.commit()
+            logger.info("Backfilled title fields for existing items")
+
     @property
     def vec_enabled(self) -> bool:
         return self._vec_enabled
@@ -159,20 +249,31 @@ class Store:
         tags: list[str],
         language: str,
         route_name: str,
+        suggested_filename: str = "",
         content_text: str = "",
         embedding: bytes | None = None,
         status: str = "routed",
     ) -> int:
         """Record a processed item. Returns the item ID."""
+        destination_name = _path_name(destination)
+        display_title = _display_title(
+            suggested_filename=suggested_filename,
+            destination_name=destination_name,
+            original_path=original_path,
+        )
         cursor = self._conn.execute(
             """INSERT INTO items (
-                original_path, destination, category, confidence,
-                summary, tags, language, route_name, content_text,
+                original_path, destination, suggested_filename, destination_name,
+                display_title, category, confidence, summary, tags, language,
+                route_name, content_text,
                 status, created_at
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 original_path,
                 destination,
+                suggested_filename,
+                destination_name,
+                display_title,
                 category,
                 confidence,
                 summary,
@@ -195,6 +296,29 @@ class Store:
 
         self._conn.commit()
         return item_id
+
+    def update_routing_metadata(self, item_id: int, destination: str, route_name: str) -> None:
+        """Update destination-related fields after routing has completed."""
+        row = self._conn.execute(
+            "SELECT original_path, suggested_filename FROM items WHERE id = ?",
+            (item_id,),
+        ).fetchone()
+        if row is None:
+            return
+
+        destination_name = _path_name(destination)
+        display_title = _display_title(
+            suggested_filename=row["suggested_filename"],
+            destination_name=destination_name,
+            original_path=row["original_path"],
+        )
+        self._conn.execute(
+            """UPDATE items
+               SET destination = ?, destination_name = ?, display_title = ?, route_name = ?
+               WHERE id = ?""",
+            (destination, destination_name, display_title, route_name, item_id),
+        )
+        self._conn.commit()
 
     def search(
         self,

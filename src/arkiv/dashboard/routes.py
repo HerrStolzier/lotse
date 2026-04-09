@@ -67,6 +67,7 @@ async def stats_partial() -> HTMLResponse:
 @router.get("/partials/search", response_class=HTMLResponse)
 async def search_partial(
     q: Annotated[str, Query()] = "",
+    memory: Annotated[bool, Query()] = True,
 ) -> HTMLResponse:
     """Search results partial (loaded via HTMX on keyup)."""
     if not q.strip():
@@ -75,8 +76,14 @@ async def search_partial(
     from arkiv.inlets.api import _get_engine
 
     engine = _get_engine()
-    results = engine.search(q.strip(), limit=20, mode="auto")
-    return _render("partials/search_results.html", results=results, query=q)
+    results, assist = engine.search_with_assist(q.strip(), limit=20, mode="auto", memory=memory)
+    return _render(
+        "partials/search_results.html",
+        results=results,
+        query=q,
+        memory=memory,
+        assist=assist,
+    )
 
 
 @router.get("/partials/recent", response_class=HTMLResponse)
