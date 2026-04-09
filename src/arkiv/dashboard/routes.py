@@ -45,9 +45,6 @@ def _render(template_name: str, **context: Any) -> HTMLResponse:
     return HTMLResponse(html)
 
 
-router.mount("/static", _static_app, name="dashboard-static")
-
-
 @router.get("/", response_class=HTMLResponse)
 async def dashboard_index() -> HTMLResponse:
     """Main dashboard page."""

@@ -52,9 +52,11 @@ def create_app(
     api.include_router(_build_router())
 
     # Mount dashboard (HTMX web UI)
+    from arkiv.dashboard.routes import _static_app
     from arkiv.dashboard.routes import router as dashboard_router
 
     api.include_router(dashboard_router)
+    api.mount("/dashboard/static", _static_app, name="dashboard-static")
 
     # Redirect root to dashboard
     @api.get("/", include_in_schema=False)

@@ -38,6 +38,16 @@ def test_dashboard_loads(client: TestClient) -> None:
     assert "styles.css" in resp.text
 
 
+def test_dashboard_static_assets_are_served(client: TestClient) -> None:
+    css = client.get("/dashboard/static/styles.css")
+    js = client.get("/dashboard/static/htmx.min.js")
+
+    assert css.status_code == 200
+    assert "tailwindcss" in css.text
+    assert js.status_code == 200
+    assert "htmx" in js.text
+
+
 def test_stats_partial(client: TestClient) -> None:
     resp = client.get("/dashboard/partials/stats")
     assert resp.status_code == 200
