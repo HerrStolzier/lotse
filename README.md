@@ -197,7 +197,6 @@ src/arkiv/
 - [x] Retry logic with exponential backoff
 - [x] Transaction safety (pending → routed/failed)
 - [x] Custom categories via config
-- [ ] Browser extension
 
 ## Development
 
