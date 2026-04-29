@@ -155,22 +155,24 @@ def test_webhook_live_delivery_to_local_endpoint(tmp_path: Path) -> None:
 
     received: Queue[dict[str, object]] = Queue()
 
-    class WebhookHandler(BaseHTTPRequestHandler):
-        def do_POST(self) -> None:  # noqa: N802 - HTTP handler API requires this name.
-            length = int(self.headers.get("Content-Length", "0"))
-            body = self.rfile.read(length).decode("utf-8")
-            received.put(
-                {
-                    "path": self.path,
-                    "headers": dict(self.headers.items()),
-                    "body": json.loads(body),
-                }
-            )
-            self.send_response(204)
-            self.end_headers()
+    def handle_post(self: BaseHTTPRequestHandler) -> None:
+        length = int(self.headers.get("Content-Length", "0"))
+        body = self.rfile.read(length).decode("utf-8")
+        received.put(
+            {
+                "path": self.path,
+                "headers": dict(self.headers.items()),
+                "body": json.loads(body),
+            }
+        )
+        self.send_response(204)
+        self.end_headers()
 
+    class WebhookHandler(BaseHTTPRequestHandler):
         def log_message(self, format: str, *args: object) -> None:
             return
+
+    WebhookHandler.do_POST = handle_post
 
     server = HTTPServer(("127.0.0.1", 0), WebhookHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
