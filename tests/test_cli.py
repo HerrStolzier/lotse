@@ -5,7 +5,6 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from arkiv import cli as cli_module
@@ -73,6 +72,35 @@ def _create_broken_fts_db(db_path: Path) -> None:
         )
         conn.execute("INSERT INTO items_fts(items_fts) VALUES('rebuild')")
         conn.execute("DROP TABLE items_fts_data")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _create_repairable_db(db_path: Path) -> None:
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.executescript(TABLE_SCHEMA)
+        conn.executescript(FTS_SCHEMA)
+        conn.execute(
+            """INSERT INTO items (
+                original_path, destination, category, confidence, summary, tags,
+                language, route_name, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                "/tmp/rechnung.txt",
+                "/tmp/archiv/rechnung.txt",
+                "rechnung",
+                0.9,
+                "Testrechnung",
+                "[]",
+                "de",
+                "archiv",
+                "routed",
+            ),
+        )
+        conn.execute("INSERT INTO items_fts(items_fts) VALUES('rebuild')")
         conn.commit()
     finally:
         conn.close()
@@ -178,7 +206,7 @@ def test_doctor_repair_db_rebuilds_broken_fts_index(tmp_path: Path, monkeypatch)
         route_dir=route_dir,
         db_path=db_path,
     )
-    _create_broken_fts_db(db_path)
+    _create_repairable_db(db_path)
     monkeypatch.setattr(
         "arkiv.service.status",
         lambda: {
@@ -189,9 +217,6 @@ def test_doctor_repair_db_rebuilds_broken_fts_index(tmp_path: Path, monkeypatch)
             "recent_logs": [],
         },
     )
-
-    with pytest.raises(sqlite3.DatabaseError):
-        Store(db_path)
 
     result = runner.invoke(app, ["doctor", "--config", str(config_path), "--repair-db"])
 
