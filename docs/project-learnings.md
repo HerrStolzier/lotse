@@ -21,3 +21,9 @@ Durable learnings from recent `kurier` work. Keep this file for practical caveat
 - GitHub Actions should use the same editable install path as local development so CI and README do not drift apart.
 - The repo-level secret scan is worth treating as permanent CI baseline, not a one-off hardening task. The useful shape is: PR + `main` push + manual dispatch, least-privilege permissions, pinned action revisions, full-history checkout, and no noisy PR comments by default.
 - For packaging or CLI changes, a green local dev environment is not enough on its own. Fresh editable-install and wheel-install smoke tests catch first-run problems that normal in-place checks can miss.
+- Local network has two Raspberry Pi nodes relevant for Kurier/n8n testing:
+  - `n8n-pi.local` / `192.168.178.75` is the current n8n node. SSH is open on `22`; n8n runs via Docker Compose in `/opt/n8n` and responds on `http://n8n-pi.local:5678/`.
+  - n8n workflow `Kurier Intake` is published for the first smoke path. It accepts `POST http://n8n-pi.local:5678/webhook/kurier` and responds with JSON containing `ok: true`, `service: "kurier-intake"`, and `receivedAt`.
+  - Local Kurier config at `~/.config/kurier/config.toml` includes `[routes.n8n]` as a webhook catch-all (`categories = []`, `confidence_threshold = 0.3`) pointing to `http://n8n-pi.local:5678/webhook/kurier`.
+  - n8n API access is available with the local key stored outside the repo at `~/.config/kurier/n8n-api-key`. Do not commit or print this key; use it as `X-N8N-API-KEY` for `http://n8n-pi.local:5678/api/v1/...`.
+  - `192.168.178.110` is the likely Bitcoin node and not the Kurier/n8n target. SSH is open on `22`; Bitcoin/Electrum-like ports observed include `8332`, `8333`, and `50001`.
