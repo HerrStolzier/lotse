@@ -69,12 +69,14 @@ def test_score_ranking_calculates_topk_and_mrr() -> None:
 
 
 def test_retrieval_baseline_runs_against_fixture() -> None:
-    summary = run_retrieval_eval(parse_model_spec("baseline"))
+    summary, details = run_retrieval_eval(parse_model_spec("baseline"))
 
     assert summary.task == "retrieval"
     assert summary.status == "ok"
     assert summary.cases >= 3
     assert summary.top3 is not None
+    assert details
+    assert details[0].task == "retrieval"
 
 
 def test_eval_llm_dry_run_lists_tasks_and_models() -> None:

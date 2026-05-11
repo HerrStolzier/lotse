@@ -41,6 +41,17 @@ class ModelSpec:
 
 
 @dataclass(frozen=True)
+class CaseDetail:
+    task: str
+    model: str
+    case_id: str
+    score: float
+    expected: str
+    actual: str
+    error: str | None = None
+
+
+@dataclass(frozen=True)
 class TaskSummary:
     task: str
     model: str
@@ -63,11 +74,13 @@ class TaskSummary:
 class BenchmarkReport:
     created_at: str
     results: list[TaskSummary]
+    details: list[CaseDetail]
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "created_at": self.created_at,
             "results": [asdict(result) for result in self.results],
+            "details": [asdict(detail) for detail in self.details],
         }
 
 
@@ -156,19 +169,18 @@ def _skipped_summary(task: TaskName, spec: ModelSpec, reason: str) -> TaskSummar
     )
 
 
-def run_classifier_eval(spec: ModelSpec, fixture_path: Path | None = None) -> TaskSummary:
+def run_classifier_eval(
+    spec: ModelSpec, fixture_path: Path | None = None
+) -> tuple[TaskSummary, list[CaseDetail]]:
     """Evaluate document classification and filename quality."""
     if not spec.uses_llm:
-        return TaskSummary(
-            task="classifier",
-            model=spec.label,
-            provider=spec.provider,
-            status="skipped_baseline_not_applicable",
-            cases=0,
-            overall_score=0.0,
+        summary = TaskSummary(
+            task="classifier", model=spec.label, provider=spec.provider,
+            status="skipped_baseline_not_applicable", cases=0, overall_score=0.0,
         )
+        return summary, []
     if not credentials_available(spec):
-        return _skipped_summary("classifier", spec, f"Missing credentials for {spec.provider}")
+        return _skipped_summary("classifier", spec, f"Missing credentials for {spec.provider}"), []
 
     cases = load_json_fixture(fixture_path or _fixture_path("classifier_benchmark.json"))
     classifier = Classifier(llm_config_for_model(spec))
@@ -177,6 +189,7 @@ def run_classifier_eval(spec: ModelSpec, fixture_path: Path | None = None) -> Ta
     category_hits = 0
     hallucinations = 0
     errors = 0
+    details: list[CaseDetail] = []
 
     for case in cases:
         started = time.perf_counter()
@@ -199,17 +212,39 @@ def run_classifier_eval(spec: ModelSpec, fixture_path: Path | None = None) -> Ta
 
             category_hits += int(category_ok)
             hallucinations += int(bool(missing_terms or forbidden_hits))
-            scores.append(
+            score = (
                 (0.5 if category_ok else 0.0)
                 + (0.35 if filename_ok else 0.0)
                 + (0.15 if metadata_ok else 0.0)
             )
-        except Exception:
+            scores.append(score)
+            details.append(
+                CaseDetail(
+                    task="classifier",
+                    model=spec.label,
+                    case_id=str(case["id"]),
+                    score=score,
+                    expected=f"{expected_category} / {', '.join(required_terms)}",
+                    actual=f"{result.category} / {result.suggested_filename}",
+                )
+            )
+        except Exception as exc:
             errors += 1
             scores.append(0.0)
+            details.append(
+                CaseDetail(
+                    task="classifier",
+                    model=spec.label,
+                    case_id=str(case.get("id", "unknown")),
+                    score=0.0,
+                    expected=str(case.get("expected", {})),
+                    actual="",
+                    error=str(exc),
+                )
+            )
 
     case_count = len(cases)
-    return TaskSummary(
+    summary = TaskSummary(
         task="classifier",
         model=spec.label,
         provider=spec.provider,
@@ -221,25 +256,26 @@ def run_classifier_eval(spec: ModelSpec, fixture_path: Path | None = None) -> Ta
         avg_latency_ms=_avg(latencies),
         error_rate=errors / case_count if case_count else 0.0,
     )
+    return summary, details
 
 
-def run_search_eval(spec: ModelSpec, fixture_path: Path | None = None) -> TaskSummary:
+def run_search_eval(
+    spec: ModelSpec, fixture_path: Path | None = None
+) -> tuple[TaskSummary, list[CaseDetail]]:
     """Evaluate query-assist JSON quality, rewrites, and filters."""
     if not spec.uses_llm:
-        return TaskSummary(
-            task="search",
-            model=spec.label,
-            provider=spec.provider,
-            status="skipped_baseline_not_applicable",
-            cases=0,
-            overall_score=0.0,
+        summary = TaskSummary(
+            task="search", model=spec.label, provider=spec.provider,
+            status="skipped_baseline_not_applicable", cases=0, overall_score=0.0,
         )
+        return summary, []
     if not credentials_available(spec):
-        return _skipped_summary("search", spec, f"Missing credentials for {spec.provider}")
+        return _skipped_summary("search", spec, f"Missing credentials for {spec.provider}"), []
 
     cases = load_benchmark_cases(fixture_path)
     results: list[EvaluationResult] = []
     latencies: list[float] = []
+    details: list[CaseDetail] = []
 
     config = llm_config_for_model(spec)
     for case in cases:
@@ -257,28 +293,49 @@ def run_search_eval(spec: ModelSpec, fixture_path: Path | None = None) -> TaskSu
             )
             elapsed_ms = (time.perf_counter() - started) * 1000
             raw = response.choices[0].message.content or ""
-            results.append(evaluate_output(case, parse_model_output(raw), elapsed_ms=elapsed_ms))
+            result = evaluate_output(case, parse_model_output(raw), elapsed_ms=elapsed_ms)
+            results.append(result)
+            details.append(
+                CaseDetail(
+                    task="search",
+                    model=spec.label,
+                    case_id=case.id,
+                    score=result.overall_score,
+                    expected=", ".join(case.expected.rewrites),
+                    actual=raw[:240],
+                )
+            )
             latencies.append(elapsed_ms)
         except Exception as exc:
             elapsed_ms = (time.perf_counter() - started) * 1000
-            results.append(
-                EvaluationResult(
+            result = EvaluationResult(
+                case_id=case.id,
+                json_valid=False,
+                rewrites_present=False,
+                filters_present=False,
+                notes_present=False,
+                rewrite_coverage=0.0,
+                filter_coverage=0.0,
+                format_score=0.0,
+                overall_score=0.0,
+                elapsed_ms=elapsed_ms,
+                error=str(exc),
+            )
+            results.append(result)
+            details.append(
+                CaseDetail(
+                    task="search",
+                    model=spec.label,
                     case_id=case.id,
-                    json_valid=False,
-                    rewrites_present=False,
-                    filters_present=False,
-                    notes_present=False,
-                    rewrite_coverage=0.0,
-                    filter_coverage=0.0,
-                    format_score=0.0,
-                    overall_score=0.0,
-                    elapsed_ms=elapsed_ms,
+                    score=0.0,
+                    expected=", ".join(case.expected.rewrites),
+                    actual="",
                     error=str(exc),
                 )
             )
 
     case_count = len(results)
-    return TaskSummary(
+    summary = TaskSummary(
         task="search",
         model=spec.label,
         provider=spec.provider,
@@ -293,6 +350,7 @@ def run_search_eval(spec: ModelSpec, fixture_path: Path | None = None) -> TaskSu
         avg_latency_ms=_avg(latencies),
         error_rate=sum(1 for result in results if result.error) / case_count if case_count else 0.0,
     )
+    return summary, details
 
 
 def _populate_retrieval_engine(fixture: dict[str, Any], db_path: Path, config: LLMConfig) -> Engine:
@@ -322,25 +380,30 @@ def _populate_retrieval_engine(fixture: dict[str, Any], db_path: Path, config: L
     return engine
 
 
+def _rank_result(results: list[dict[str, Any]], expected_document_id: str) -> int | None:
+    expected_path = f"fixture://{expected_document_id}"
+    for index, item in enumerate(results, 1):
+        if item.get("original_path") == expected_path:
+            return index
+    return None
+
+
 def _score_ranking(
     results: list[dict[str, Any]], expected_document_id: str
 ) -> tuple[float, float, float]:
-    expected_path = f"fixture://{expected_document_id}"
-    rank: int | None = None
-    for index, item in enumerate(results, 1):
-        if item.get("original_path") == expected_path:
-            rank = index
-            break
+    rank = _rank_result(results, expected_document_id)
     top1 = 1.0 if rank == 1 else 0.0
     top3 = 1.0 if rank is not None and rank <= 3 else 0.0
     mrr = 1.0 / rank if rank else 0.0
     return top1, top3, mrr
 
 
-def run_retrieval_eval(spec: ModelSpec, fixture_path: Path | None = None) -> TaskSummary:
+def run_retrieval_eval(
+    spec: ModelSpec, fixture_path: Path | None = None
+) -> tuple[TaskSummary, list[CaseDetail]]:
     """Evaluate retrieval quality against a temporary fixture database."""
     if not credentials_available(spec):
-        return _skipped_summary("retrieval", spec, f"Missing credentials for {spec.provider}")
+        return _skipped_summary("retrieval", spec, f"Missing credentials for {spec.provider}"), []
 
     fixture = json.loads((fixture_path or _fixture_path("retrieval_benchmark.json")).read_text())
     if not isinstance(fixture, dict):
@@ -353,6 +416,7 @@ def run_retrieval_eval(spec: ModelSpec, fixture_path: Path | None = None) -> Tas
         top3_scores: list[float] = []
         mrr_scores: list[float] = []
         latencies: list[float] = []
+        details: list[CaseDetail] = []
         errors = 0
 
         for query_case in fixture.get("queries", []):
@@ -369,21 +433,44 @@ def run_retrieval_eval(spec: ModelSpec, fixture_path: Path | None = None) -> Tas
                 if spec.uses_llm and assist is not None and not assist.queries(""):
                     errors += 1
                 latencies.append((time.perf_counter() - started) * 1000)
-                top1, top3, mrr = _score_ranking(results, str(query_case["expected_document_id"]))
+                expected_id = str(query_case["expected_document_id"])
+                top1, top3, mrr = _score_ranking(results, expected_id)
                 top1_scores.append(top1)
                 top3_scores.append(top3)
                 mrr_scores.append(mrr)
+                rank = _rank_result(results, expected_id)
+                details.append(
+                    CaseDetail(
+                        task="retrieval",
+                        model=spec.label,
+                        case_id=str(query_case["id"]),
+                        score=(top1 * 0.5) + (top3 * 0.25) + (mrr * 0.25),
+                        expected=expected_id,
+                        actual=f"rank={rank}" if rank is not None else "not_found",
+                    )
+                )
             except Exception:
                 errors += 1
                 top1_scores.append(0.0)
                 top3_scores.append(0.0)
                 mrr_scores.append(0.0)
+                details.append(
+                    CaseDetail(
+                        task="retrieval",
+                        model=spec.label,
+                        case_id=str(query_case.get("id", "unknown")),
+                        score=0.0,
+                        expected=str(query_case.get("expected_document_id", "")),
+                        actual="",
+                        error="retrieval failed",
+                    )
+                )
 
     case_count = len(top1_scores)
     top1 = sum(top1_scores) / case_count if case_count else 0.0
     top3 = sum(top3_scores) / case_count if case_count else 0.0
     mrr = sum(mrr_scores) / case_count if case_count else 0.0
-    return TaskSummary(
+    summary = TaskSummary(
         task="retrieval",
         model=spec.label,
         provider=spec.provider,
@@ -396,6 +483,7 @@ def run_retrieval_eval(spec: ModelSpec, fixture_path: Path | None = None) -> Tas
         avg_latency_ms=_avg(latencies),
         error_rate=errors / case_count if case_count else 0.0,
     )
+    return summary, details
 
 
 def run_benchmark(
@@ -406,15 +494,22 @@ def run_benchmark(
     """Run all requested benchmark tasks for all requested models."""
     specs = [parse_model_spec(raw) for raw in model_specs]
     results: list[TaskSummary] = []
+    details: list[CaseDetail] = []
     for spec in specs:
         for task in tasks:
             if task == "classifier":
-                results.append(run_classifier_eval(spec))
+                summary, case_details = run_classifier_eval(spec)
             elif task == "search":
-                results.append(run_search_eval(spec))
+                summary, case_details = run_search_eval(spec)
             elif task == "retrieval":
-                results.append(run_retrieval_eval(spec))
-    return BenchmarkReport(created_at=datetime.now(UTC).isoformat(), results=results)
+                summary, case_details = run_retrieval_eval(spec)
+            results.append(summary)
+            details.extend(case_details)
+    return BenchmarkReport(
+        created_at=datetime.now(UTC).isoformat(),
+        results=results,
+        details=details,
+    )
 
 
 def write_report(report: BenchmarkReport, output: Path | None = None) -> Path:
