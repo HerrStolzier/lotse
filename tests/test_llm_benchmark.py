@@ -11,6 +11,7 @@ from arkiv.cli import app
 from arkiv.evals.llm_benchmark import (
     _score_ranking,
     credentials_available,
+    default_models,
     load_json_fixture,
     parse_model_spec,
     run_retrieval_eval,
@@ -33,6 +34,17 @@ def test_huggingface_credentials_require_hf_token(monkeypatch) -> None:
 
     monkeypatch.setenv("HF_TOKEN", "hf-test-token")
     assert credentials_available(parse_model_spec("huggingface:openai/gpt-oss-20b")) is True
+
+
+def test_default_models_keep_paid_cloud_providers_opt_in(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "present-but-no-credit")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "present-but-no-credit")
+
+    models = default_models()
+
+    assert "baseline" in models
+    assert "ollama:qwen2.5:7b" in models
+    assert not any(model.startswith(("openai:", "anthropic:")) for model in models)
 
 
 def test_classifier_benchmark_fixture_shape() -> None:

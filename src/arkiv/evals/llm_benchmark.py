@@ -72,13 +72,8 @@ class BenchmarkReport:
 
 
 def default_models() -> list[str]:
-    """Return conservative defaults plus cloud models when credentials are present."""
-    models = list(DEFAULT_MODELS)
-    if os.environ.get("OPENAI_API_KEY"):
-        models.append("openai:gpt-4o-mini")
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        models.append("anthropic:claude-sonnet-4-5-20250514")
-    return models
+    """Return conservative defaults; paid cloud APIs are opt-in via --models."""
+    return list(DEFAULT_MODELS)
 
 
 def parse_model_spec(raw: str) -> ModelSpec:
@@ -365,12 +360,14 @@ def run_retrieval_eval(spec: ModelSpec, fixture_path: Path | None = None) -> Tas
                 continue
             started = time.perf_counter()
             try:
-                results, _assist = engine.search_with_assist(
+                results, assist = engine.search_with_assist(
                     str(query_case["query"]),
                     limit=5,
                     mode="fts",
                     memory=spec.uses_llm,
                 )
+                if spec.uses_llm and assist is not None and not assist.queries(""):
+                    errors += 1
                 latencies.append((time.perf_counter() - started) * 1000)
                 top1, top3, mrr = _score_ranking(results, str(query_case["expected_document_id"]))
                 top1_scores.append(top1)
