@@ -61,6 +61,34 @@ def test_memory_search_boosts_filter_matches(tmp_path: Path) -> None:
     assert "kategorie: rechnung" in [hit.casefold() for hit in results[0]["matched_filters"]]
 
 
+def test_memory_search_matches_location_filter_alias(tmp_path: Path) -> None:
+    config = ArkivConfig(
+        database={"path": tmp_path / "test.db"},
+        inbox_dir=tmp_path / "inbox",
+        review_dir=tmp_path / "review",
+    )
+    engine = Engine(config)
+    item = {
+        "id": 1,
+        "display_title": "Mietvertrag Wohnung Wuerzburg",
+        "destination_name": "mietvertrag.pdf",
+        "summary": "Mietvertrag fuer eine Wohnung in Wuerzburg",
+        "tags": '["mietvertrag","wuerzburg"]',
+        "category": "vertrag",
+        "original_path": "/tmp/mietvertrag.pdf",
+    }
+    assist = QueryAssist(
+        rewrites=["Mietvertrag Würzburg"],
+        filters={"locations": ["Wuerzburg"]},
+        notes="",
+        raw="",
+    )
+
+    hits = engine._match_assist_filters(item, assist)
+
+    assert "Ort: Wuerzburg" in hits
+
+
 def test_search_results_receive_match_reason(tmp_path: Path) -> None:
     config = ArkivConfig(
         database={"path": tmp_path / "test.db"},

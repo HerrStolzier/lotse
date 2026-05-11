@@ -61,3 +61,22 @@ def test_query_assistant_queries_dedupe_original_query() -> None:
         result = assistant.assist("Telekom Rechnung")
 
     assert result.queries("Telekom Rechnung") == ["Telekom Rechnung", "Internetrechnung"]
+
+
+def test_query_assistant_queries_add_ascii_umlaut_variants() -> None:
+    assist = QueryAssistant(LLMConfig(provider="ollama", model="qwen2.5:7b"))
+    raw = {
+        "rewrites": ["Mietvertrag Würzburg"],
+        "filters": {},
+        "notes": "Kurz.",
+    }
+
+    with patch("arkiv.core.search_assistant.completion") as mock_llm:
+        mock_llm.return_value = _mock_completion_response(raw)
+        result = assist.assist("Mietvertrag")
+
+    assert result.queries("Mietvertrag") == [
+        "Mietvertrag",
+        "Mietvertrag Würzburg",
+        "Mietvertrag Wuerzburg",
+    ]

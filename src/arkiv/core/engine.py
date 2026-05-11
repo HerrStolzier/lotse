@@ -285,6 +285,8 @@ class Engine:
             ("organizations", "Organisation"),
             ("topics", "Thema"),
             ("date_hints", "Zeit"),
+            ("location_hints", "Ort"),
+            ("locations", "Ort"),
         ):
             for value in assist.filters.get(key, []):
                 normalized_value = _normalize_search_text(value)

@@ -66,12 +66,12 @@ class QueryAssist:
         seen: set[str] = set()
         result: list[str] = []
         for query in ordered:
-            cleaned = " ".join(query.split())
-            key = cleaned.casefold()
-            if not cleaned or key in seen:
-                continue
-            seen.add(key)
-            result.append(cleaned)
+            for cleaned in _query_variants(query):
+                key = cleaned.casefold()
+                if not cleaned or key in seen:
+                    continue
+                seen.add(key)
+                result.append(cleaned)
         return result
 
     @classmethod
@@ -82,6 +82,28 @@ class QueryAssist:
 def _build_prompt(categories: dict[str, str], query: str) -> str:
     category_list = ", ".join(sorted(categories))
     return _PROMPT_TEMPLATE.format(category_list=category_list, query=query)
+
+
+def _ascii_german_variant(value: str) -> str:
+    return (
+        value.replace("Ä", "Ae")
+        .replace("Ö", "Oe")
+        .replace("Ü", "Ue")
+        .replace("ä", "ae")
+        .replace("ö", "oe")
+        .replace("ü", "ue")
+        .replace("ß", "ss")
+    )
+
+
+def _query_variants(query: str) -> list[str]:
+    cleaned = " ".join(query.split())
+    if not cleaned:
+        return []
+    ascii_variant = _ascii_german_variant(cleaned)
+    if ascii_variant == cleaned:
+        return [cleaned]
+    return [cleaned, ascii_variant]
 
 
 def _build_model_id(config: LLMConfig) -> str:
