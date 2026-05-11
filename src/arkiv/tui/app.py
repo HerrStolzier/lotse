@@ -43,7 +43,7 @@ MENU_ITEMS: list[tuple[str, str]] = [
     ("4", "Status & Statistiken"),
     ("5", "Letzte Einträge"),
     ("6", "Audit"),
-    ("7", "Einstellungen prüfen (Doctor)"),
+    ("7", "Gesundheitscheck"),
 ]
 
 SEARCH_MODES = ["hybrid", "keyword", "semantic"]
@@ -916,12 +916,12 @@ class AddFileModal(ModalScreen[None]):
 
 
 # ---------------------------------------------------------------------------
-# DoctorModal
+# Gesundheitscheck
 # ---------------------------------------------------------------------------
 
 
 class DoctorModal(ModalScreen[None]):
-    """Zeigt Doctor-Ergebnisse als Modal."""
+    """Zeigt Gesundheitscheck-Ergebnisse als Modal."""
 
     BINDINGS: ClassVar[list[Binding]] = [
         Binding("escape", "dismiss", "Schließen", show=True),
@@ -933,8 +933,8 @@ class DoctorModal(ModalScreen[None]):
         self._config = config
 
     def compose(self) -> ComposeResult:
-        yield Static("[bold]Einstellungen prüfen (Doctor)[/bold]", id="doctor-title")
-        yield Static("[dim]Prüfe...[/dim]", id="doctor-content")
+        yield Static("[bold]Kurier Gesundheitscheck[/bold]", id="doctor-title")
+        yield Static("[dim]Prüfe, ob Kurier startklar ist...[/dim]", id="doctor-content")
         yield Static("[dim]ESC zum Schließen[/dim]", id="doctor-footer")
 
     def on_mount(self) -> None:
@@ -961,25 +961,25 @@ class DoctorModal(ModalScreen[None]):
         def fail(label: str, detail: str = "") -> None:
             rows.append(("[red]✗[/red]", label, detail))
 
-        # Check 1: Config-Datei
+        # Check 1: Einstellungen
         cfg_valid = False
         cfg = None
         if config_path.exists():
             try:
                 with open(config_path, "rb") as f:
                     tomllib.load(f)
-                ok("Config-Datei", str(config_path))
+                ok("Einstellungen", str(config_path))
                 cfg_valid = True
             except Exception as e:
-                fail("Config-Datei", f"Ungültiges TOML: {e}")
+                fail("Einstellungen", f"Die Datei ist nicht lesbar: {e}")
         else:
-            fail("Config-Datei", f"Nicht gefunden: {config_path}")
+            fail("Einstellungen", f"Nicht gefunden: {config_path}")
 
         if cfg_valid:
             try:
                 cfg = ArkivConfig.load(config_path)
             except Exception as e:
-                fail("Config laden", str(e))
+                fail("Einstellungen laden", str(e))
                 cfg_valid = False
 
         # Check 2: Auto-Sortierung / Inbox
@@ -992,12 +992,12 @@ class DoctorModal(ModalScreen[None]):
                 review_count = _count_visible_files(cfg.review_dir)
 
                 if info.get("running"):
-                    detail = "Hintergrunddienst läuft"
+                    detail = "Kurier sortiert neue Dateien automatisch"
                     if inbox_count:
                         detail += f"; {inbox_count} Datei(en) im Eingang"
                     ok("Auto-Sortierung", detail)
                 else:
-                    detail = "Hintergrunddienst ist aus — starte mit `kurier service on`"
+                    detail = "Automatische Sortierung ist aus — starte sie mit: kurier service on"
                     if inbox_count:
                         detail += f" ({inbox_count} Datei(en) im Eingang)"
                     warn("Auto-Sortierung", detail)
@@ -1009,7 +1009,7 @@ class DoctorModal(ModalScreen[None]):
             except Exception as e:
                 warn("Auto-Sortierung", f"Status konnte nicht geprüft werden: {str(e)[:60]}")
 
-        # Check 3: Route-Verzeichnisse
+        # Check 3: Ablage-Ordner
         if cfg is not None:
             from pathlib import Path as _Path
 
@@ -1019,9 +1019,9 @@ class DoctorModal(ModalScreen[None]):
                     if rp.exists():
                         ok(f"Route '{name}'", str(rp))
                     else:
-                        warn(f"Route '{name}'", f"Verzeichnis fehlt: {rp}")
+                        warn(f"Route '{name}'", f"Ordner fehlt: {rp}")
 
-        # Check 4: LLM erreichbar
+        # Check 4: KI-Modell erreichbar
         if cfg is not None:
             if cfg.llm.provider == "ollama":
                 ollama_url = (cfg.llm.base_url or "http://localhost:11434").rstrip("/")
@@ -1031,19 +1031,19 @@ class DoctorModal(ModalScreen[None]):
                         models = [m["name"] for m in data.get("models", [])]
                     model_names_base = [m.split(":")[0] for m in models]
                     if cfg.llm.model in models or cfg.llm.model in model_names_base:
-                        ok("LLM erreichbar", f"{cfg.llm.provider}/{cfg.llm.model}")
+                        ok("KI-Modell erreichbar", f"{cfg.llm.provider}/{cfg.llm.model}")
                     else:
                         available = ", ".join(models[:3]) or "-"
                         warn(
-                            "LLM-Modell fehlt",
-                            f"'{cfg.llm.model}' nicht gefunden. Verfügbar: {available}",
+                            "KI-Modell fehlt",
+                            f"{cfg.llm.model} ist noch nicht installiert. Verfügbar: {available}",
                         )
                 except Exception as e:
-                    fail("LLM erreichbar", f"Ollama nicht erreichbar: {str(e)[:60]}")
+                    fail("KI-Modell erreichbar", f"Ollama antwortet nicht: {str(e)[:60]}")
             else:
-                ok("LLM", f"{cfg.llm.provider} (API-Key via Env-Var)")
+                ok("KI-Modell", f"{cfg.llm.provider} (API-Key über Umgebungsvariable)")
 
-        # Check 5: DB-Status
+        # Check 5: Ablage-Daten
         if cfg is not None and cfg.database.path.exists():
             try:
                 from arkiv.db.store import Store
@@ -1054,16 +1054,16 @@ class DoctorModal(ModalScreen[None]):
                 failed_count = sum(1 for it in all_items if it.get("status") == "failed")
                 if pending or failed_count:
                     warn(
-                        "DB-Status",
+                        "Ablage-Daten",
                         f"{pending} ausstehend, {failed_count} fehlgeschlagen"
                         f" ({len(all_items)} gesamt)",
                     )
                 else:
-                    ok("DB-Status", f"{len(all_items)} Einträge, keine Fehler")
+                    ok("Ablage-Daten", f"{len(all_items)} Einträge, keine Fehler")
             except Exception as e:
                 warn("Datenbank", str(e)[:80])
         elif cfg is not None:
-            ok("Datenbank", "Noch leer (kein Element verarbeitet)")
+            ok("Ablage-Daten", "Noch leer (kein Dokument verarbeitet)")
 
         self.call_from_thread(self._render_results, rows)
 
@@ -1317,7 +1317,7 @@ def _wizard_model_hint(model_name: str) -> tuple[str, bool]:
 
 
 class SetupWizardScreen(Screen[None]):
-    """Erster-Start-Wizard: Inbox-Ordner, LLM-Modell, Fertig."""
+    """Erster-Start-Wizard: Eingangs-Ordner, KI-Modell, Fertig."""
 
     BINDINGS: ClassVar[list[Binding]] = [
         Binding("enter", "next_step", "Weiter", show=True),
@@ -1408,16 +1408,17 @@ class SetupWizardScreen(Screen[None]):
 
         elif self._step == 2:
             content.update(
-                "[bold #f5a623]LLM-Modell wählen[/bold #f5a623]\n\n"
-                "Das Modell klassifiziert deine Dateien automatisch.\n"
-                "[#888888]Größere Modelle (7b+) sind genauer, brauchen aber mehr RAM.[/#888888]\n"
+                "[bold #f5a623]KI-Modell wählen[/bold #f5a623]\n\n"
+                "Dieses Modell hilft Kurier, Dokumente zu verstehen und zu sortieren.\n"
+                "[#888888]Größere Modelle sind oft genauer, brauchen aber mehr "
+                "Arbeitsspeicher.[/#888888]\n"
             )
             ollama_status.display = True
             model_list.display = True
             if self._ollama_checked:
                 self._populate_model_list()
             else:
-                ollama_status.update("[dim]Prüfe Ollama...[/dim]")
+                ollama_status.update("[dim]Prüfe, ob die lokale KI erreichbar ist...[/dim]")
             next_btn.label = "Weiter →"
 
         elif self._step == 3:
@@ -1433,7 +1434,7 @@ class SetupWizardScreen(Screen[None]):
         indicator = self.query_one("#wizard-step-indicator", Static)
         labels = [
             "Eingangs-Ordner",
-            "LLM-Modell",
+            "KI-Modell",
             "Fertig",
         ]
         label = labels[self._step - 1]
@@ -1451,11 +1452,11 @@ class SetupWizardScreen(Screen[None]):
         summary = self.query_one("#wizard-summary", Static)
         lines = [
             "[bold]Zusammenfassung:[/bold]\n",
-            f"[bold #f5a623]Inbox-Ordner:[/bold #f5a623]  {self._inbox_path}",
-            f"[bold #f5a623]LLM-Modell:  [/bold #f5a623]  {self._selected_model}",
-            f"[bold #f5a623]Config:      [/bold #f5a623]  {DEFAULT_CONFIG_FILE}",
+            f"[bold #f5a623]Eingang:[/bold #f5a623]       {self._inbox_path}",
+            f"[bold #f5a623]KI-Modell:[/bold #f5a623]     {self._selected_model}",
+            f"[bold #f5a623]Einstellungen:[/bold #f5a623] {DEFAULT_CONFIG_FILE}",
             "",
-            "[dim]Verzeichnisse werden beim Start angelegt.[/dim]",
+            "[dim]Kurier legt die nötigen Ordner beim Start automatisch an.[/dim]",
         ]
         summary.update("\n".join(lines))
 
@@ -1498,9 +1499,9 @@ class SetupWizardScreen(Screen[None]):
 
         if not self._ollama_running:
             ollama_status.update(
-                "[yellow]Ollama nicht gefunden.[/yellow]  "
-                "Installiere es von [bold]https://ollama.com[/bold]  "
-                "[dim]— oder wähle trotzdem ein Modell:[/dim]"
+                "[yellow]Lokale KI nicht gefunden.[/yellow]  "
+                "Installiere Ollama von [bold]https://ollama.com[/bold]  "
+                "[dim]— oder wähle schon jetzt ein Modell aus:[/dim]"
             )
             # Empfehlungsliste aus setup_wizard.py anbieten
             defaults = ["qwen2.5:7b", "qwen2.5:3b", "qwen2.5:1.5b", "mistral"]
@@ -1513,7 +1514,7 @@ class SetupWizardScreen(Screen[None]):
             models = self._ollama_models
             if models:
                 ollama_status.update(
-                    f"[green]Ollama läuft[/green] — {len(models)} Modell(e) verfügbar"
+                    f"[green]Lokale KI ist erreichbar[/green] — {len(models)} Modell(e) gefunden"
                 )
                 for model in models[:10]:
                     desc, rec = _wizard_model_hint(model)
@@ -1532,7 +1533,8 @@ class SetupWizardScreen(Screen[None]):
                         break
             else:
                 ollama_status.update(
-                    "[yellow]Ollama läuft, aber keine Modelle heruntergeladen.[/yellow]\n"
+                    "[yellow]Lokale KI läuft, aber es ist noch kein Modell "
+                    "heruntergeladen.[/yellow]\n"
                     "Empfehlung: [bold]ollama pull qwen2.5:7b[/bold]"
                 )
                 defaults = ["qwen2.5:7b", "qwen2.5:3b", "qwen2.5:1.5b"]
@@ -1706,20 +1708,21 @@ class SetupWizardScreen(Screen[None]):
                 success, msg = service.install()
                 if success:
                     service_msg = (
-                        "\n[green]✓ Hintergrund-Service aktiviert![/green]"
-                        "\n[dim]Dateien im Eingang werden ab jetzt automatisch sortiert.[/dim]"
+                        "\n[green]✓ Automatische Sortierung eingeschaltet![/green]"
+                        "\n[dim]Neue Dateien im Eingang werden ab jetzt automatisch "
+                        "verarbeitet.[/dim]"
                     )
                 else:
-                    service_msg = f"\n[yellow]Service: {msg}[/yellow]"
+                    service_msg = f"\n[yellow]Automatische Sortierung: {msg}[/yellow]"
             except Exception as svc_err:
                 service_msg = (
-                    f"\n[dim]Service konnte nicht aktiviert werden: {svc_err}[/dim]"
+                    f"\n[dim]Automatische Sortierung konnte nicht gestartet werden: {svc_err}[/dim]"
                     "\n[dim]Starte manuell mit: kurier service on[/dim]"
                 )
 
             with contextlib.suppress(NoMatches):
                 self.query_one("#wizard-status", Static).update(
-                    "[green]✓ Konfiguration gespeichert![/green]"
+                    "[green]✓ Einstellungen gespeichert![/green]"
                     f"{service_msg}\n\n"
                     "[bold]Kurier ist bereit![/bold]"
                 )
@@ -1729,7 +1732,7 @@ class SetupWizardScreen(Screen[None]):
                 self.query_one("#wizard-status", Static).update(f"[red]Fehler: {exc}[/red]")
 
     def _do_write_config(self) -> None:
-        """Config-Datei schreiben und Verzeichnisse anlegen."""
+        """Einstellungen schreiben und Verzeichnisse anlegen."""
         from arkiv.core.config import DEFAULT_CONFIG_DIR, DEFAULT_CONFIG_FILE
 
         DEFAULT_CONFIG_DIR.mkdir(parents=True, exist_ok=True)

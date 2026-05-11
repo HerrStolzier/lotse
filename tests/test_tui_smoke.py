@@ -8,7 +8,7 @@ import pytest
 from textual.widgets import ListView, Static
 
 from arkiv.core.config import ArkivConfig
-from arkiv.tui.app import ArkivApp, HomeScreen
+from arkiv.tui.app import MENU_ITEMS, ArkivApp, HomeScreen
 
 
 @pytest.fixture
@@ -22,6 +22,13 @@ def config(tmp_path: Path) -> ArkivConfig:
 
 def test_arkiv_app_alias_points_to_home_screen() -> None:
     assert ArkivApp is HomeScreen
+
+
+def test_tui_menu_uses_user_facing_healthcheck_label() -> None:
+    labels = [label for _key, label in MENU_ITEMS]
+
+    assert "Gesundheitscheck" in labels
+    assert not any("Doctor" in label for label in labels)
 
 
 @pytest.mark.asyncio
