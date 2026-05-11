@@ -9,62 +9,67 @@ from rich.table import Table
 
 from arkiv.commands.common import console, get_config
 
-service_app = typer.Typer(name="service", help="Hintergrund-Service verwalten.")
+service_app = typer.Typer(name="service", help="Automatische Sortierung verwalten.")
 
 
 @service_app.command("on")
 def service_on(
     config: Path | None = typer.Option(None, "--config", "-c"),
 ) -> None:
-    """Hintergrund-Service starten — Kurier sortiert automatisch."""
+    """Automatische Sortierung starten."""
     from arkiv import service
 
     success, msg = service.install()
     if success:
-        console.print(f"[green]✓[/green] {msg}")
+        console.print("[green]✓[/green] Automatische Sortierung ist eingeschaltet.")
+        console.print(f"[dim]{msg}[/dim]")
         cfg = get_config(config)
-        console.print(f"[dim]Inbox: {cfg.inbox_dir}[/dim]")
-        console.print("[dim]Dateien werden ab jetzt automatisch sortiert.[/dim]")
+        console.print(f"[dim]Kurier beobachtet jetzt diesen Eingang: {cfg.inbox_dir}[/dim]")
+        console.print("[dim]Neue Dateien werden ab jetzt automatisch verarbeitet.[/dim]")
     else:
         console.print(f"[yellow]{msg}[/yellow]")
 
 
 @service_app.command("off")
 def service_off() -> None:
-    """Hintergrund-Service stoppen."""
+    """Automatische Sortierung stoppen."""
     from arkiv import service
 
     success, msg = service.uninstall()
-    console.print(f"[green]✓[/green] {msg}" if success else f"[yellow]{msg}[/yellow]")
+    if success:
+        console.print("[green]✓[/green] Automatische Sortierung ist ausgeschaltet.")
+        console.print(f"[dim]{msg}[/dim]")
+    else:
+        console.print(f"[yellow]{msg}[/yellow]")
 
 
 @service_app.command("status")
 def service_status(
     config: Path | None = typer.Option(None, "--config", "-c"),
 ) -> None:
-    """Service-Status anzeigen."""
+    """Zeigen, ob die automatische Sortierung läuft."""
     from arkiv import service
 
     info = service.status()
 
-    table = Table(title="Kurier Service", show_header=False, border_style="dim")
+    table = Table(title="Kurier Auto-Sortierung", show_header=False, border_style="dim")
     table.add_column("Feld", style="dim", width=12)
     table.add_column("Wert")
 
     running = info.get("running", False)
     pid = info.get("pid")
     if running and pid:
-        status_str = f"[green]✓ Läuft[/green] (PID {pid})"
+        status_str = f"[green]✓ Läuft[/green] (Prozess {pid})"
     else:
-        status_str = "[red]✗ Gestoppt[/red]"
+        status_str = "[yellow]Ausgeschaltet[/yellow]"
 
-    table.add_row("Status", status_str)
+    table.add_row("Zustand", status_str)
 
     cfg = get_config(config)
-    table.add_row("Inbox", str(cfg.inbox_dir))
+    table.add_row("Eingang", str(cfg.inbox_dir))
 
     log_path = info.get("log_path", "")
-    table.add_row("Log", str(log_path) if log_path else "[dim]-[/dim]")
+    table.add_row("Protokoll", str(log_path) if log_path else "[dim]nicht verfügbar[/dim]")
 
     console.print(table)
 
@@ -74,7 +79,7 @@ def service_status(
             lines = log_file.read_text(encoding="utf-8", errors="replace").splitlines()
             last_lines = lines[-5:] if len(lines) >= 5 else lines
             if last_lines:
-                console.print("\n[dim]Letzte Logs:[/dim]")
+                console.print("\n[dim]Letzte technische Meldungen:[/dim]")
                 for line in last_lines:
                     console.print(f"[dim]{line}[/dim]")
 

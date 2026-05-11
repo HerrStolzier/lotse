@@ -95,11 +95,11 @@ def init(
     config: Path | None = typer.Option(None, "--config", "-c"),
     quick: bool = typer.Option(False, "--quick", "-q", help="Skip wizard, use defaults"),
 ) -> None:
-    """Initialize Kurier — interactive setup wizard."""
+    """Kurier einrichten — mit Ordnerauswahl und kurzen Startprüfungen."""
     path = config or DEFAULT_CONFIG_FILE
     if path.exists():
-        console.print(f"[yellow]Config already exists:[/yellow] {path}")
-        console.print("[dim]Delete it first or edit manually.[/dim]")
+        console.print(f"[yellow]Kurier ist hier schon eingerichtet:[/yellow] {path}")
+        console.print("[dim]Wenn du neu starten willst, benenne diese Datei vorher um.[/dim]")
         raise typer.Exit(1)
 
     default_inbox = str(Path.home() / "Documents" / "Kurier" / "Eingang")
@@ -140,7 +140,7 @@ def init(
         "confidence_threshold = 0.5\n"
     )
     path.write_text(default_config)
-    console.print(f"\n[green]✓[/green] Config erstellt: {path}")
+    console.print(f"\n[green]✓[/green] Einstellungen gespeichert: {path}")
     console.print(f"[green]✓[/green] Eingangs-Ordner: {inbox_path}")
 
     for route_name in ["Archiv", "Artikel", "Code", "Notizen"]:
@@ -149,7 +149,7 @@ def init(
 
     if quick:
         console.print("[yellow]Auto-Sortierung ist noch aus.[/yellow]")
-        console.print("[dim]Starte sie mit: kurier service on[/dim]")
+        console.print("[dim]Starte sie, sobald alles passt: kurier service on[/dim]")
     else:
         _post_init_checks(path)
 
@@ -169,7 +169,7 @@ def _post_init_checks(config_path: Path) -> None:
         if route.path:
             route_path = Path(route.path).expanduser()
             route_path.mkdir(parents=True, exist_ok=True)
-            console.print(f"[dim]Route-Verzeichnis erstellt:[/dim] {route_path}")
+            console.print(f"[dim]Ablage-Ordner vorbereitet:[/dim] {route_path}")
 
     ollama_url = (cfg.llm.base_url or "http://localhost:11434").rstrip("/")
     ollama_running = False
@@ -182,15 +182,16 @@ def _post_init_checks(config_path: Path) -> None:
         models = []
 
     if ollama_running:
-        console.print(f"[green]✓[/green] Ollama läuft ({ollama_url})")
+        console.print(f"[green]✓[/green] Lokale KI ist erreichbar ({ollama_url})")
         if models:
-            console.print(f"[dim]Verfügbare Modelle:[/dim] {', '.join(models[:5])}")
+            console.print(f"[dim]Gefundene KI-Modelle:[/dim] {', '.join(models[:5])}")
         else:
             console.print(
-                "[yellow]Keine Modelle gefunden. Lade eines: ollama pull qwen2.5:7b[/yellow]"
+                "[yellow]Noch kein KI-Modell heruntergeladen.[/yellow] "
+                "Empfehlung: ollama pull qwen2.5:7b"
             )
 
-        console.print("\n[dim]Teste Klassifikation...[/dim]")
+        console.print("\n[dim]Teste kurz, ob Kurier ein Beispieldokument versteht...[/dim]")
         try:
             from arkiv.core.engine import Engine
 
@@ -198,15 +199,16 @@ def _post_init_checks(config_path: Path) -> None:
             sample = "Dies ist eine Rechnung über 42,00 EUR von der Stadtwerke GmbH."
             result = engine.ingest_text(sample, name="init-test")
             if result.success:
-                console.print(f"[green]✓[/green] Test-Klassifikation: {result.message}")
+                console.print(f"[green]✓[/green] Test erfolgreich: {result.message}")
             else:
-                console.print(f"[yellow]Test-Klassifikation:[/yellow] {result.message}")
+                console.print(f"[yellow]Test braucht Aufmerksamkeit:[/yellow] {result.message}")
         except Exception as e:
-            console.print(f"[yellow]Test-Klassifikation fehlgeschlagen:[/yellow] {e}")
+            console.print(f"[yellow]Test konnte nicht abgeschlossen werden:[/yellow] {e}")
     else:
         console.print(
-            "[yellow]Ollama nicht gefunden.[/yellow] "
-            "Installiere es von [link]https://ollama.com[/link]"
+            "[yellow]Lokale KI nicht gefunden.[/yellow] "
+            "Installiere Ollama von [link]https://ollama.com[/link], "
+            "wenn Kurier lokal klassifizieren soll."
         )
 
 

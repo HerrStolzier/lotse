@@ -124,3 +124,50 @@ def test_init_quick_creates_notizen_route_and_next_step(tmp_path: Path, monkeypa
     config_text = config_path.read_text(encoding="utf-8")
     assert "[routes.notizen]" in config_text
     assert 'categories = ["notiz"]' in config_text
+
+
+def test_service_status_uses_human_readable_labels(tmp_path: Path, monkeypatch) -> None:
+    """Service status should avoid internal labels like PID, Log, or Inbox."""
+    config_path = tmp_path / "config.toml"
+    inbox_dir = tmp_path / "Kurier" / "Eingang"
+    review_dir = tmp_path / "Kurier" / "Pruefen"
+    db_path = tmp_path / "kurier.db"
+    inbox_dir.mkdir(parents=True)
+    review_dir.mkdir(parents=True)
+
+    config_path.write_text(
+        "\n".join(
+            [
+                f'inbox_dir = "{inbox_dir}"',
+                f'review_dir = "{review_dir}"',
+                "",
+                "[llm]",
+                'provider = "openai"',
+                'model = "gpt-4o-mini"',
+                "",
+                "[database]",
+                f'path = "{db_path}"',
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "arkiv.service.status",
+        lambda: {
+            "installed": True,
+            "running": True,
+            "pid": 1234,
+            "log_path": "",
+            "recent_logs": [],
+        },
+    )
+
+    result = runner.invoke(app, ["service", "status", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Kurier Auto-Sortierung" in result.output
+    assert "Zustand" in result.output
+    assert "Eingang" in result.output
+    assert "Prozess 1234" in result.output
