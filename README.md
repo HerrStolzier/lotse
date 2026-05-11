@@ -122,20 +122,32 @@ base_url = "https://router.huggingface.co/v1"  # optional default
 For local Ollama models, Kurier checks available RAM during setup and `kurier doctor`.
 Benchmark defaults also pick a conservative local model for the detected memory.
 
-## LLM Benchmarks
+## Model Quality Checks
 
-Kurier includes a reproducible benchmark runner for classification, memory-search query assist,
-and retrieval quality:
+Kurier can test which AI model works best for your documents. The check answers three practical
+questions:
+
+- Can the model recognize what kind of document it is?
+- Can it understand search questions well enough to improve search?
+- Does it actually find the right document, not just sound confident?
+
+For everyday use, start with the full check:
 
 ```bash
-kurier eval llm --task classifier --models ollama:qwen2.5:7b
-kurier eval llm --task search --models huggingface:openai/gpt-oss-20b:fastest
-kurier eval llm --task retrieval --models baseline
 kurier eval llm --all --output eval-results/latest.json
 ```
 
-Reports include score, latency, error rate, and task-specific metrics. `baseline` runs retrieval
-without an LLM so model-assisted search can be compared against plain keyword retrieval.
+You can also test specific models:
+
+```bash
+kurier eval llm --task retrieval --models baseline --models ollama:qwen2.5:7b
+kurier eval llm --task search --models huggingface:openai/gpt-oss-20b:fastest
+```
+
+The screen output is a readable summary. The JSON report keeps the detailed numbers for later
+comparison, including quality score, runtime, errors, and task-specific metrics. `baseline` means
+"no AI help" and shows whether a model really improves the search compared with plain keyword
+retrieval.
 
 ## REST API
 
