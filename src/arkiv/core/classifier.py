@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -38,8 +39,12 @@ Return ONLY a JSON object (no other text, no markdown):
 "suggested_filename": "kurzer deutscher Dateiname, max 5 Wörter, \
 beschreibt den Inhalt so dass man die Datei in 6 Monaten wiederfindet. \
 Regeln: Leerzeichen zwischen Wörtern (KEINE Unterstriche), normale Groß/Kleinschreibung, \
-nichts abkürzen, keine Dateiendung anhängen. \
-Beispiele: Rechnung Telekom März 2026, Mietvertrag Schillerstraße München, Steuerbescheid 2025"}}
+nichts abkürzen, keine Dateiendung anhängen, keine Namen/Organisationen erfinden. \
+Nutze nur Namen, Orte und Organisationen, die im Inhalt vorkommen. \
+Wenn bei Rechnungen ein Rechnungssteller oder Anbieter im Inhalt steht, \
+muss dieser Name im suggested_filename vorkommen. \
+Beispiele sind nur Formatmuster, keine zu kopierenden Inhalte: Rechnung Anbieter März 2026, \
+Mietvertrag Adresse München, Steuerbescheid 2025"}}
 
 Content:
 ---
@@ -52,6 +57,85 @@ def _build_prompt(categories: dict[str, str], content: str) -> str:
     """Build the classification prompt from a categories dict."""
     lines = "\n".join(f'- "{key}" = {desc}' for key, desc in categories.items())
     return _PROMPT_HEADER.format(category_lines=lines + "\n\n", content=content)
+
+
+def _extract_invoice_issuer(content: str) -> str | None:
+    """Extract a likely invoice issuer from common German invoice headers."""
+    patterns = [
+        r"\bRechnung\s+(?:der|des|von)\s+([A-ZÄÖÜ][\wÄÖÜäöüß&.-]*(?:\s+[A-ZÄÖÜ][\wÄÖÜäöüß&.-]*){0,2})",
+        r"\b(?:Rechnungssteller|Anbieter|Absender):\s*([A-ZÄÖÜ][^\n,;]{2,60})",
+    ]
+    for line in content.splitlines()[:8]:
+        for pattern in patterns:
+            match = re.search(pattern, line)
+            if match:
+                issuer = re.sub(r"\s+", " ", match.group(1)).strip(" .,-")
+                if issuer:
+                    return issuer
+    return None
+
+
+def _extract_invoice_period(content: str) -> str | None:
+    """Extract a compact German period label from common invoice text."""
+    patterns = [
+        r"\bLeistungszeitraum:\s*([A-ZÄÖÜa-zäöüß]+)\s+(\d{4})",
+        r"\b(?:bis zum|fällig am)\s+\d{1,2}\.(\d{1,2})\.(\d{4})",
+    ]
+    month_names = {
+        "01": "Januar",
+        "02": "Februar",
+        "03": "März",
+        "04": "April",
+        "05": "Mai",
+        "06": "Juni",
+        "07": "Juli",
+        "08": "August",
+        "09": "September",
+        "10": "Oktober",
+        "11": "November",
+        "12": "Dezember",
+    }
+    for pattern in patterns:
+        match = re.search(pattern, content)
+        if not match:
+            continue
+        first, year = match.groups()
+        month = month_names.get(first.zfill(2), first)
+        return f"{month} {year}"
+    return None
+
+
+def _postprocess_classification(content: str, classification: Classification) -> Classification:
+    """Apply deterministic cleanup for common LLM filename mistakes."""
+    if classification.category != "rechnung":
+        return classification
+
+    issuer = _extract_invoice_issuer(content)
+    if not issuer:
+        return classification
+
+    issuer_tokens = {token.casefold() for token in issuer.split()}
+    filename_tokens = {token.casefold() for token in classification.suggested_filename.split()}
+    generic_or_missing_issuer = (
+        "Anbieter" in classification.suggested_filename
+        or not issuer_tokens <= filename_tokens
+    )
+    if not generic_or_missing_issuer:
+        return classification
+
+    period = _extract_invoice_period(content)
+    suggested_filename = f"Rechnung {issuer}"
+    if period:
+        suggested_filename = f"{suggested_filename} {period}"
+
+    return Classification(
+        category=classification.category,
+        confidence=classification.confidence,
+        summary=classification.summary,
+        tags=classification.tags,
+        language=classification.language,
+        suggested_filename=suggested_filename,
+    )
 
 
 @dataclass
@@ -156,7 +240,7 @@ class Classifier:
                     raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
 
                 data = json.loads(raw)
-                return Classification.from_dict(data)
+                return _postprocess_classification(truncated, Classification.from_dict(data))
 
             except json.JSONDecodeError as e:
                 logger.warning("Failed to parse LLM response as JSON: %s", e)

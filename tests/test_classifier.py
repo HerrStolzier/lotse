@@ -3,7 +3,12 @@
 import json
 from unittest.mock import MagicMock, patch
 
-from arkiv.core.classifier import Classifier
+from arkiv.core.classifier import (
+    Classification,
+    Classifier,
+    _build_prompt,
+    _postprocess_classification,
+)
 from arkiv.core.config import LLMConfig
 
 
@@ -68,3 +73,44 @@ def test_classify_returns_low_confidence_on_error() -> None:
 
     assert result.category == "unknown"
     assert result.confidence == 0.0
+
+
+def test_prompt_warns_not_to_copy_example_entities() -> None:
+    prompt = _build_prompt({"rechnung": "invoice"}, "Rechnung der Stadtwerke")
+
+    assert "keine Namen/Organisationen erfinden" in prompt
+    assert "muss dieser Name im suggested_filename vorkommen" in prompt
+    assert "keine zu kopierenden Inhalte" in prompt
+    assert "Rechnung Telekom" not in prompt
+
+
+def test_postprocess_replaces_generic_invoice_provider_with_issuer() -> None:
+    classification = Classification(
+        category="rechnung",
+        confidence=0.95,
+        summary="Stadtwerke Musterstadt Rechnung",
+        tags=["rechnung"],
+        language="de",
+        suggested_filename="Rechnung Anbieter Juli 2026",
+    )
+
+    content = "Rechnung der Stadtwerke Musterstadt\nLeistungszeitraum: Juli 2026\n42 EUR"
+    result = _postprocess_classification(content, classification)
+
+    assert result.suggested_filename == "Rechnung Stadtwerke Musterstadt Juli 2026"
+
+
+def test_postprocess_replaces_abbreviated_invoice_provider_with_issuer() -> None:
+    classification = Classification(
+        category="rechnung",
+        confidence=0.95,
+        summary="Stadtwerke Musterstadt Rechnung",
+        tags=["rechnung"],
+        language="de",
+        suggested_filename="Rechnung StW Musterstadt July26",
+    )
+    content = "Rechnung der Stadtwerke Musterstadt\nLeistungszeitraum: Juli 2026\n42 EUR"
+
+    result = _postprocess_classification(content, classification)
+
+    assert result.suggested_filename == "Rechnung Stadtwerke Musterstadt Juli 2026"
