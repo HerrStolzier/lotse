@@ -10,6 +10,8 @@ Durable learnings from recent `kurier` work. Keep this file for practical caveat
 - Pluggy hook calls return lists. When a hook is unimplemented, preserve the original content instead of treating an empty result like a replacement value.
 - Memory search quality improves when human-facing fields such as suggested filenames, destination names, and display titles are stored and indexed alongside the core content. A readable `match_reason` also makes retrieval behavior easier to trust and debug.
 - A manual review correction is not complete until the item is marked as confirmed. If the category changes without confirming confidence, the entry can fall back into the review queue on the next refresh.
+- User-facing validation and benchmark output must read like product language, not developer commands. Internals such as `uv run ruff check src/ tests/`, `mypy`, or raw pytest summaries are useful for contributors, but the finished Kurier UI/CLI should translate them into plain results such as "Code-Qualität geprüft", "Typprüfung bestanden", and "Alle automatischen Tests erfolgreich".
+- Plan a dedicated UX polish pass after the core flows are technically stable. The goal is to make Kurier feel understandable for "Otto Normalverbraucher": fewer raw implementation terms, clearer status messages, calmer error explanations, and guided next steps instead of command-shaped output.
 
 ## Workflow Gotchas
 
