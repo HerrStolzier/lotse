@@ -75,8 +75,8 @@ def test_status_reports_empty_database_without_crashing(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     assert "Kurier" in result.stdout
-    assert "No items processed yet." in result.stdout
-    assert "Database:" in result.stdout
+    assert "Noch keine Dokumente verarbeitet." in result.stdout
+    assert "Ablage-Daten:" in result.stdout
     assert db_path.name in result.stdout
 
 
@@ -86,8 +86,8 @@ def test_doctor_reports_missing_config_file(tmp_path: Path) -> None:
     result = runner.invoke(app, ["doctor", "--config", str(missing_config)])
 
     assert result.exit_code == 0
-    assert "Kurier Doctor" in result.stdout
-    assert "Config-Datei" in result.stdout
+    assert "Kurier Gesundheitscheck" in result.stdout
+    assert "Einstellungen" in result.stdout
     assert "Nicht gefunden" in result.stdout
 
 

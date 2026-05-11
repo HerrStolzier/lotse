@@ -40,11 +40,11 @@ def doctor(
         help="Lege fehlende Ordner aus der Config direkt an",
     ),
 ) -> None:
-    """Systemzustand prüfen — Config, Routen, LLM, Datenbank."""
+    """Prüfe, ob Kurier startklar ist und was noch Aufmerksamkeit braucht."""
     config_path = config or DEFAULT_CONFIG_FILE
 
-    check_table = Table(title="Kurier Doctor", show_header=True, border_style="dim")
-    check_table.add_column("Status", width=4)
+    check_table = Table(title="Kurier Gesundheitscheck", show_header=True, border_style="dim")
+    check_table.add_column("OK", width=4)
     check_table.add_column("Prüfung")
     check_table.add_column("Details", style="dim")
 
@@ -61,13 +61,13 @@ def doctor(
         try:
             with open(config_path, "rb") as f:
                 tomllib.load(f)
-            ok("Config-Datei", str(config_path))
+            ok("Einstellungen", str(config_path))
             cfg_valid = True
         except Exception as e:
-            fail("Config-Datei", f"Ungültiges TOML: {e}")
+            fail("Einstellungen", f"Die Datei ist nicht lesbar: {e}")
             cfg_valid = False
     else:
-        fail("Config-Datei", f"Nicht gefunden: {config_path}")
+        fail("Einstellungen", f"Nicht gefunden: {config_path}")
         cfg_valid = False
 
     cfg = None
@@ -75,7 +75,7 @@ def doctor(
         try:
             cfg = ArkivConfig.load(config_path)
         except Exception as e:
-            fail("Config laden", str(e))
+            fail("Einstellungen laden", str(e))
             cfg_valid = False
 
     if cfg is not None:
@@ -87,13 +87,13 @@ def doctor(
             review_backlog = _count_visible_inbox_files(cfg.review_dir)
 
             if info.get("running"):
-                detail = "Hintergrunddienst läuft"
+                detail = "Kurier sortiert neue Dateien automatisch"
                 if backlog:
                     noun = "Datei" if backlog == 1 else "Dateien"
                     detail += f"; {backlog} {noun} warten gerade im Eingang"
                 ok("Auto-Sortierung", detail)
             else:
-                detail = "Hintergrunddienst ist aus. Starte mit: `kurier service on`"
+                detail = "Automatische Sortierung ist aus. Starte sie mit: kurier service on"
                 if backlog:
                     noun = "Datei" if backlog == 1 else "Dateien"
                     detail += f" ({backlog} {noun} warten im Eingang)"
@@ -129,7 +129,7 @@ def doctor(
                 warn(
                     label,
                     "Fehlt noch: "
-                    f"{directory}  (beim Erststart oft normal; `kurier doctor --fix` legt es an)",
+                    f"{directory}  (kurier doctor --fix legt den Ordner automatisch an)",
                 )
 
     if cfg is not None:
@@ -141,33 +141,33 @@ def doctor(
                     models = [m["name"] for m in data.get("models", [])]
                 model_names_base = [m.split(":")[0] for m in models]
                 if cfg.llm.model in models or cfg.llm.model in model_names_base:
-                    ok("LLM erreichbar", f"{cfg.llm.provider}/{cfg.llm.model}")
+                    ok("KI-Modell erreichbar", f"{cfg.llm.provider}/{cfg.llm.model}")
                 else:
                     available = ", ".join(models[:3]) or "-"
                     warn(
-                        "LLM-Modell fehlt",
-                        f"'{cfg.llm.model}' nicht gefunden. Verfügbar: {available}",
+                        "KI-Modell fehlt",
+                        f"{cfg.llm.model} ist noch nicht installiert. Verfügbar: {available}",
                     )
             except Exception as e:
-                fail("LLM erreichbar", f"Ollama nicht erreichbar: {e}")
+                fail("KI-Modell erreichbar", f"Ollama antwortet nicht: {e}")
 
             ram_gb = detect_ram_gb()
             fits, detail = model_fits_ram(cfg.llm.model, ram_gb)
             if fits is True:
-                ok("LLM/RAM-Fit", detail)
+                ok("Arbeitsspeicher passt zum KI-Modell", detail)
             elif fits is False:
-                warn("LLM/RAM-Fit", detail)
+                warn("Arbeitsspeicher passt zum KI-Modell", detail)
             else:
-                warn("LLM/RAM-Fit", detail)
+                warn("Arbeitsspeicher passt zum KI-Modell", detail)
         else:
-            ok("LLM", f"{cfg.llm.provider} (API-Key via Env-Var)")
+            ok("KI-Modell", f"{cfg.llm.provider} (API-Key über Umgebungsvariable)")
 
     if cfg is not None and cfg.categories:
         empty_cats = [name for name, desc in cfg.categories.items() if not desc or not desc.strip()]
         if empty_cats:
-            warn("Kategorie-Beschreibungen", f"Leer bei: {', '.join(empty_cats)}")
+            warn("Beschreibungen für Dokumentarten", f"Leer bei: {', '.join(empty_cats)}")
         else:
-            ok("Kategorie-Beschreibungen", "Alle vorhanden")
+            ok("Beschreibungen für Dokumentarten", "Alle vorhanden")
 
     if cfg is not None and cfg.database.path.exists():
         try:
@@ -183,11 +183,11 @@ def doctor(
                     f"{pending} ausstehend, {failed} fehlgeschlagen (von {len(all_items)} gesamt)",
                 )
             else:
-                ok("DB-Status", f"{len(all_items)} Einträge, keine Fehler")
+                ok("Ablage-Daten", f"{len(all_items)} Einträge, keine Fehler")
         except Exception as e:
             warn("Datenbank", str(e))
     elif cfg is not None:
-        ok("Datenbank", "Noch leer (kein Element verarbeitet)")
+        ok("Ablage-Daten", "Noch leer (kein Dokument verarbeitet)")
 
     console.print(check_table)
 

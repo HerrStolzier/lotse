@@ -106,7 +106,7 @@ def test_doctor_warns_when_auto_sort_is_off_and_files_wait(tmp_path: Path, monke
 
     assert result.exit_code == 0
     assert "Auto-Sortierung" in result.output
-    assert "Hintergrunddienst ist aus" in result.output
+    assert "Automatische Sortierung ist aus" in result.output
     assert "1 Datei" in result.output
 
 
