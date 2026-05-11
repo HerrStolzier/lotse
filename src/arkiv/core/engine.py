@@ -226,7 +226,11 @@ class Engine:
 
         for query_index, query in enumerate(queries):
             per_query_limit = max(limit, 10)
-            results = self._search_single_query(query, limit=per_query_limit, mode=mode)
+            try:
+                results = self._search_single_query(query, limit=per_query_limit, mode=mode)
+            except Exception as exc:
+                logger.warning("Search query variant failed for %r: %s", query, exc)
+                continue
             query_weight = 1.2 if query_index == 0 else 1.0
             for rank_pos, item in enumerate(results, 1):
                 item_id = item["id"]

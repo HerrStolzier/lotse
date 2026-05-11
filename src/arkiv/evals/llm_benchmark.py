@@ -450,7 +450,7 @@ def run_retrieval_eval(
                         actual=f"rank={rank}" if rank is not None else "not_found",
                     )
                 )
-            except Exception:
+            except Exception as exc:
                 errors += 1
                 top1_scores.append(0.0)
                 top3_scores.append(0.0)
@@ -463,7 +463,7 @@ def run_retrieval_eval(
                         score=0.0,
                         expected=str(query_case.get("expected_document_id", "")),
                         actual="",
-                        error="retrieval failed",
+                        error=str(exc),
                     )
                 )
 

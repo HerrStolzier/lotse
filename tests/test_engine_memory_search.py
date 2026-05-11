@@ -132,3 +132,37 @@ def test_search_results_receive_match_reason(tmp_path: Path) -> None:
 
     assert len(results) == 1
     assert results[0]["match_reason"].startswith("Passt wegen")
+
+
+def test_memory_search_skips_broken_query_variant(tmp_path: Path) -> None:
+    config = ArkivConfig(
+        database={"path": tmp_path / "test.db"},
+        inbox_dir=tmp_path / "inbox",
+        review_dir=tmp_path / "review",
+    )
+    engine = Engine(config)
+    valid_result = [
+        {
+            "id": 2,
+            "display_title": "Rechnung Telekom April 2026",
+            "destination_name": "telekom-rechnung.pdf",
+            "summary": "Internetrechnung der Telekom",
+            "tags": '["telekom","rechnung"]',
+            "category": "rechnung",
+            "original_path": "/tmp/scan-002.pdf",
+            "route_name": "archiv",
+            "created_at": "2026-04-09T10:00:00+00:00",
+        }
+    ]
+
+    def fake_search(query: str, limit: int, mode: str) -> list[dict[str, object]]:
+        if query == "broken":
+            raise RuntimeError("fts syntax error")
+        return valid_result
+
+    with patch.object(engine, "_search_single_query", side_effect=fake_search):
+        results = engine._search_multi_query(["broken", "Telekom Rechnung"], limit=5, mode="fts")
+
+    assert len(results) == 1
+    assert results[0]["id"] == 2
+    assert results[0]["matched_queries"] == ["Telekom Rechnung"]
