@@ -108,7 +108,31 @@ Arkiv supports any LLM provider via direct HTTP calls (`core/llm.py`):
 | Ollama (local) | `provider = "ollama"`, `model = "qwen2.5:7b"` |
 | OpenAI | `provider = "openai"`, `model = "gpt-4o-mini"` |
 | Anthropic | `provider = "anthropic"`, `model = "claude-sonnet-4-5-20250514"` |
-| HuggingFace | `provider = "huggingface"`, `model = "meta-llama/..."` |
+| HuggingFace | `provider = "huggingface"`, `model = "openai/gpt-oss-20b:fastest"` plus `HF_TOKEN` |
+
+Hugging Face uses the Inference Providers router by default:
+
+```toml
+[llm]
+provider = "huggingface"
+model = "openai/gpt-oss-20b:fastest"
+base_url = "https://router.huggingface.co/v1"  # optional default
+```
+
+## LLM Benchmarks
+
+Kurier includes a reproducible benchmark runner for classification, memory-search query assist,
+and retrieval quality:
+
+```bash
+kurier eval llm --task classifier --models ollama:qwen2.5:7b
+kurier eval llm --task search --models huggingface:openai/gpt-oss-20b:fastest
+kurier eval llm --task retrieval --models baseline
+kurier eval llm --all --output eval-results/latest.json
+```
+
+Reports include score, latency, error rate, and task-specific metrics. `baseline` runs retrieval
+without an LLM so model-assisted search can be compared against plain keyword retrieval.
 
 ## REST API
 

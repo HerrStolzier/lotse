@@ -1,0 +1,62 @@
+{
+  "documents": [
+    {
+      "id": "doc_stadtwerke_invoice",
+      "title": "Rechnung Stadtwerke Musterstadt Juli 2026",
+      "category": "rechnung",
+      "summary": "Stromrechnung der Stadtwerke Musterstadt fuer Juli 2026.",
+      "tags": ["rechnung", "stadtwerke", "strom", "juli", "2026"],
+      "language": "de",
+      "content": "Rechnung der Stadtwerke Musterstadt. Leistungszeitraum Juli 2026. Betrag 42 EUR."
+    },
+    {
+      "id": "doc_telekom_invoice",
+      "title": "Rechnung Telekom April 2026",
+      "category": "rechnung",
+      "summary": "Internetrechnung der Telekom fuer April 2026.",
+      "tags": ["rechnung", "telekom", "internet", "april", "2026"],
+      "language": "de",
+      "content": "Telekom Internetrechnung April 2026 fuer den Anschluss zuhause."
+    },
+    {
+      "id": "doc_wuerzburg_contract",
+      "title": "Mietvertrag Wohnung Wuerzburg",
+      "category": "vertrag",
+      "summary": "Mietvertrag fuer eine Wohnung in Wuerzburg.",
+      "tags": ["mietvertrag", "wohnung", "wuerzburg"],
+      "language": "de",
+      "content": "Mietvertrag Wohnung Schillerstrasse Wuerzburg. Mietbeginn April 2026."
+    },
+    {
+      "id": "doc_tax_notice",
+      "title": "Steuerbescheid 2025",
+      "category": "bescheid",
+      "summary": "Steuerbescheid des Finanzamts fuer 2025.",
+      "tags": ["steuer", "finanzamt", "bescheid", "2025"],
+      "language": "de",
+      "content": "Finanzamt Musterstadt Steuerbescheid fuer das Jahr 2025."
+    }
+  ],
+  "queries": [
+    {
+      "id": "find_stadtwerke_invoice",
+      "query": "die Stromrechnung von den Stadtwerken",
+      "expected_document_id": "doc_stadtwerke_invoice"
+    },
+    {
+      "id": "find_internet_invoice",
+      "query": "Internetrechnung 2026 Telekom",
+      "expected_document_id": "doc_telekom_invoice"
+    },
+    {
+      "id": "find_rental_contract",
+      "query": "mein Mietvertrag aus Wuerzburg",
+      "expected_document_id": "doc_wuerzburg_contract"
+    },
+    {
+      "id": "find_tax_notice",
+      "query": "Steuerbescheid vom Finanzamt",
+      "expected_document_id": "doc_tax_notice"
+    }
+  ]
+}

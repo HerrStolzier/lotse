@@ -46,6 +46,7 @@ def test_help_lists_expected_primary_commands() -> None:
         "init",
         "doctor",
         "audit",
+        "eval",
         "serve",
         "plugins",
         "undo",

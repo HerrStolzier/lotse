@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 
 import httpx
@@ -25,6 +26,8 @@ class CompletionResponse:
 def _detect_provider(model: str, api_base: str | None) -> str:
     if api_base and "11434" in api_base:
         return "ollama"
+    if model.startswith(("huggingface/", "huggingface:")):
+        return "huggingface"
     if model.startswith(("ollama_chat/", "ollama/")):
         return "ollama"
     if model.startswith(("claude", "anthropic/")):
@@ -69,7 +72,9 @@ def _call_openai(
     api_base: str,
     api_key: str | None,
 ) -> CompletionResponse:
-    url = f"{api_base.rstrip('/')}/v1/chat/completions"
+    base = api_base.rstrip("/")
+    endpoint = "chat/completions" if base.endswith("/v1") else "v1/chat/completions"
+    url = f"{base}/{endpoint}"
     headers: dict[str, str] = {}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -84,6 +89,24 @@ def _call_openai(
     data = resp.json()
     content = data["choices"][0]["message"]["content"]
     return CompletionResponse(choices=[Choice(message=Message(content=content))])
+
+
+def _call_huggingface(
+    model: str,
+    messages: list[dict[str, str]],
+    temperature: float,
+    max_tokens: int,
+    timeout: int,
+    api_base: str | None,
+    api_key: str | None,
+) -> CompletionResponse:
+    for prefix in ("huggingface/", "huggingface:"):
+        if model.startswith(prefix):
+            model = model[len(prefix) :]
+            break
+    base = api_base or "https://router.huggingface.co/v1"
+    token = api_key or os.environ.get("HF_TOKEN")
+    return _call_openai(model, messages, temperature, max_tokens, timeout, base, token)
 
 
 def _call_anthropic(
@@ -141,6 +164,16 @@ def completion(
         if provider == "ollama":
             base = api_base or "http://localhost:11434"
             return _call_ollama(model, messages, temperature, max_tokens, timeout, base)
+        if provider == "huggingface":
+            return _call_huggingface(
+                model,
+                messages,
+                temperature,
+                max_tokens,
+                timeout,
+                api_base,
+                api_key,
+            )
         if provider == "anthropic":
             return _call_anthropic(model, messages, temperature, max_tokens, timeout, api_key)
         # openai-kompatibel (OpenAI, vLLM, LM Studio, …)

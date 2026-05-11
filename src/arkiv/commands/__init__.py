@@ -8,6 +8,7 @@ from arkiv.commands import (
     audit,
     doctor,
     email,
+    eval,
     export,
     ingest,
     plugins,
@@ -31,6 +32,7 @@ def register_commands(app: typer.Typer) -> None:
     setup.register(app)
     doctor.register(app)
     audit.register(app)
+    eval.register(app)
     server.register(app)
     plugins.register(app)
     undo.register(app)

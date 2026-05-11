@@ -1,0 +1,38 @@
+[
+  {
+    "id": "stadtwerke_invoice_2026",
+    "content": "Rechnung der Stadtwerke Musterstadt\nLeistungszeitraum: Juli 2026\nBetrag: 42 EUR\nBitte zahlen Sie bis zum 15.08.2026.",
+    "expected": {
+      "category": "rechnung",
+      "filename_must_include": ["Stadtwerke", "Musterstadt"],
+      "filename_forbidden": ["Telekom", "Anbieter"]
+    }
+  },
+  {
+    "id": "rental_contract_wuerzburg",
+    "content": "Mietvertrag fuer die Wohnung in Wuerzburg\nVermieterin: Erika Beispiel\nMietbeginn: 01.04.2026\nAdresse: Schillerstrasse 12, Wuerzburg.",
+    "expected": {
+      "category": "vertrag",
+      "filename_must_include": ["Mietvertrag"],
+      "filename_forbidden": ["Rechnung", "Telekom"]
+    }
+  },
+  {
+    "id": "tax_notice_2025",
+    "content": "Finanzamt Musterstadt\nSteuerbescheid fuer das Jahr 2025\nBitte beachten Sie die Rechtsbehelfsbelehrung.",
+    "expected": {
+      "category": "bescheid",
+      "filename_must_include": ["Steuerbescheid"],
+      "filename_forbidden": ["Rechnung", "Vertrag"]
+    }
+  },
+  {
+    "id": "health_insurance_letter",
+    "content": "Krankenkasse Beispiel\nMitteilung zur Anpassung Ihres Beitrags ab Januar 2026\nDies ist keine Rechnung.",
+    "expected": {
+      "category": "brief",
+      "filename_must_include": ["Krankenkasse"],
+      "filename_forbidden": ["Telekom"]
+    }
+  }
+]
