@@ -9,12 +9,18 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from arkiv import __version__
+from arkiv.application import AppContext
+from arkiv.application.ingest import ingest_file as ingest_file_workflow
+from arkiv.application.ingest import ingest_text as ingest_text_workflow
+from arkiv.application.search import search_items as search_items_workflow
+from arkiv.application.status import get_recent_items
+from arkiv.application.status import get_status as get_status_workflow
 from arkiv.core.config import ArkivConfig
 from arkiv.core.engine import Engine
 from arkiv.core.upload import validate_and_save
 
-# Engine is initialized lazily via lifespan or create_app()
-_engine: Engine | None = None
+# Shared application runtime is initialized by create_app()
+_app_context: AppContext | None = None
 
 
 def create_app(
@@ -31,13 +37,12 @@ def create_app(
             Defaults to False (no restriction). Set to True via ``kurier serve`` when
             the host is non-localhost and no --api-key / --force flag is given.
     """
-    global _engine
+    global _app_context
 
     from arkiv.core.auth import ApiKeyMiddleware
 
     cfg = config or ArkivConfig.load()
-    cfg.ensure_dirs()
-    _engine = Engine(cfg)
+    _app_context = AppContext(cfg)
 
     api = FastAPI(
         title="Kurier",
@@ -124,10 +129,14 @@ class HealthResponse(BaseModel):
 # --- Router ---
 
 
-def _get_engine() -> Engine:
-    if _engine is None:
+def _get_context() -> AppContext:
+    if _app_context is None:
         raise HTTPException(status_code=503, detail="Engine not initialized")
-    return _engine
+    return _app_context
+
+
+def _get_engine() -> Engine:
+    return _get_context().engine
 
 
 def _build_router() -> APIRouter:
@@ -154,13 +163,13 @@ def _build_router() -> APIRouter:
         file: Annotated[UploadFile, File(description="File to classify and route")],
     ) -> IngestResponse:
         """Upload a file to be classified and routed."""
-        engine = _get_engine()
+        ctx = _get_context()
 
         # Validate and stream to temp file
         tmp_path = await validate_and_save(file)
 
         try:
-            result = engine.ingest_file(tmp_path)
+            result = ingest_file_workflow(ctx, tmp_path)
         except Exception as e:
             tmp_path.unlink(missing_ok=True)
             raise HTTPException(status_code=500, detail=str(e)) from e
@@ -181,12 +190,12 @@ def _build_router() -> APIRouter:
         name: Annotated[str, Form(description="Optional name")] = "api_input",
     ) -> IngestResponse:
         """Submit text to be classified."""
-        engine = _get_engine()
+        ctx = _get_context()
 
         if not text.strip():
             raise HTTPException(status_code=422, detail="Text cannot be empty")
 
-        result = engine.ingest_text(text, name=name)
+        result = ingest_text_workflow(ctx, text, name=name)
 
         return IngestResponse(
             success=result.success,
@@ -203,12 +212,12 @@ def _build_router() -> APIRouter:
         memory: Annotated[bool, Query(description="Enable LLM query assist")] = False,
     ) -> SearchResponse:
         """Search processed items. Supports keyword, semantic, and hybrid search."""
-        engine = _get_engine()
+        ctx = _get_context()
 
         if mode not in ("fts", "vec", "auto"):
             raise HTTPException(status_code=422, detail="mode must be 'fts', 'vec', or 'auto'")
 
-        results, assist = engine.search_with_assist(q, limit=limit, mode=mode, memory=memory)
+        results, assist = search_items_workflow(ctx, q, limit=limit, mode=mode, memory=memory)
 
         return SearchResponse(
             query=q,
@@ -237,8 +246,8 @@ def _build_router() -> APIRouter:
     @router.get("/status", response_model=StatusResponse)
     async def get_status() -> StatusResponse:
         """Get processing statistics."""
-        engine = _get_engine()
-        s = engine.stats()
+        ctx = _get_context()
+        s = get_status_workflow(ctx)
 
         return StatusResponse(
             version=__version__,
@@ -254,8 +263,8 @@ def _build_router() -> APIRouter:
         limit: Annotated[int, Query(ge=1, le=100)] = 20,
     ) -> list[ItemListEntry]:
         """Get most recently processed items."""
-        engine = _get_engine()
-        result: list[dict[str, Any]] = engine.store.recent(limit=limit)
+        ctx = _get_context()
+        result: list[dict[str, Any]] = get_recent_items(ctx, limit=limit)
         return [_serialize_item(item) for item in result]
 
     return router

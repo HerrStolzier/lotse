@@ -1,0 +1,36 @@
+"""Characterization tests for the Kurier Textual app."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from textual.widgets import ListView, Static
+
+from arkiv.core.config import ArkivConfig
+from arkiv.tui.app import ArkivApp, HomeScreen
+
+
+@pytest.fixture
+def config(tmp_path: Path) -> ArkivConfig:
+    return ArkivConfig(
+        database={"path": tmp_path / "kurier.db"},
+        inbox_dir=tmp_path / "inbox",
+        review_dir=tmp_path / "review",
+    )
+
+
+def test_arkiv_app_alias_points_to_home_screen() -> None:
+    assert ArkivApp is HomeScreen
+
+
+@pytest.mark.asyncio
+async def test_tui_boots_into_home_screen_with_menu_and_empty_db_hint(config: ArkivConfig) -> None:
+    app = ArkivApp(config)
+
+    async with app.run_test() as _pilot:
+        menu = app.query_one("#menu-list", ListView)
+        stats_bar = app.query_one("#stats-bar", Static)
+
+        assert len(menu.children) == 7
+        assert "Noch keine Einträge" in str(stats_bar.render())

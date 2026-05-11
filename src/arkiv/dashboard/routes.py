@@ -12,6 +12,10 @@ from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
 
 from arkiv import __version__
+from arkiv.application.ingest import ingest_file as ingest_file_workflow
+from arkiv.application.review import confirm_review_item, correct_review_item, get_review_items
+from arkiv.application.search import search_items as search_items_workflow
+from arkiv.application.status import get_recent_items, get_status
 from arkiv.core.upload import validate_and_save
 
 
@@ -54,10 +58,10 @@ async def dashboard_index() -> HTMLResponse:
 @router.get("/partials/stats", response_class=HTMLResponse)
 async def stats_partial() -> HTMLResponse:
     """Stats cards partial (loaded via HTMX)."""
-    from arkiv.inlets.api import _get_engine
+    from arkiv.inlets.api import _get_context
 
-    engine = _get_engine()
-    stats = engine.stats()
+    ctx = _get_context()
+    stats = get_status(ctx)
     return _render("partials/stats.html", stats=stats)
 
 
@@ -70,10 +74,10 @@ async def search_partial(
     if not q.strip():
         return HTMLResponse("")
 
-    from arkiv.inlets.api import _get_engine
+    from arkiv.inlets.api import _get_context
 
-    engine = _get_engine()
-    results, assist = engine.search_with_assist(q.strip(), limit=20, mode="auto", memory=memory)
+    ctx = _get_context()
+    results, assist = search_items_workflow(ctx, q.strip(), limit=20, mode="auto", memory=memory)
     return _render(
         "partials/search_results.html",
         results=results,
@@ -86,10 +90,10 @@ async def search_partial(
 @router.get("/partials/recent", response_class=HTMLResponse)
 async def recent_partial() -> HTMLResponse:
     """Recent items table partial (loaded via HTMX)."""
-    from arkiv.inlets.api import _get_engine
+    from arkiv.inlets.api import _get_context
 
-    engine = _get_engine()
-    items = engine.store.recent(limit=30)
+    ctx = _get_context()
+    items = get_recent_items(ctx, limit=30)
     return _render("partials/recent.html", items=items)
 
 
@@ -98,9 +102,9 @@ async def upload_partial(
     file: Annotated[UploadFile, File(description="File to classify and route")],
 ) -> HTMLResponse:
     """Handle file upload and return result partial."""
-    from arkiv.inlets.api import _get_engine
+    from arkiv.inlets.api import _get_context
 
-    engine = _get_engine()
+    ctx = _get_context()
 
     # Validate and stream to temp file (raises HTTPException on invalid input)
     try:
@@ -115,7 +119,7 @@ async def upload_partial(
         )
 
     try:
-        result = engine.ingest_file(tmp_path)
+        result = ingest_file_workflow(ctx, tmp_path)
     except Exception as e:
         tmp_path.unlink(missing_ok=True)
         return _render(
@@ -129,8 +133,7 @@ async def upload_partial(
     tmp_path.unlink(missing_ok=True)
 
     # Fetch the most recently inserted item (by created_at) to get category/confidence.
-    # Using the store's own recent() is safe here since ingest_file() already committed.
-    recent = engine.store.recent(limit=1)
+    recent = get_recent_items(ctx, limit=1)
     category = recent[0]["category"] if recent else "unknown"
     confidence = recent[0]["confidence"] if recent else 0
 
@@ -146,10 +149,10 @@ async def upload_partial(
 @router.get("/partials/review", response_class=HTMLResponse)
 async def review_partial() -> HTMLResponse:
     """Review queue: low-confidence items that may need manual correction."""
-    from arkiv.inlets.api import _get_engine
+    from arkiv.inlets.api import _get_context
 
-    engine = _get_engine()
-    items = engine.store.low_confidence(threshold=0.6, limit=50)
+    ctx = _get_context()
+    items = get_review_items(ctx, threshold=0.6, limit=50)
     return _render("partials/review.html", items=items)
 
 
@@ -159,11 +162,11 @@ async def review_correct(
     category: Annotated[str, Form(description="New category")],
 ) -> HTMLResponse:
     """Correct the category of a low-confidence item. Returns empty HTML (item removed)."""
-    from arkiv.inlets.api import _get_engine
+    from arkiv.inlets.api import _get_context
 
-    engine = _get_engine()
+    ctx = _get_context()
     try:
-        engine.store.update_category(item_id, category.strip())
+        correct_review_item(ctx, item_id, category)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     # Return empty string — HTMX will swap the item out of the queue
@@ -173,11 +176,11 @@ async def review_correct(
 @router.post("/partials/review/{item_id}/confirm", response_class=HTMLResponse)
 async def review_confirm(item_id: int) -> HTMLResponse:
     """Confirm the classification of a low-confidence item. Returns empty HTML (item removed)."""
-    from arkiv.inlets.api import _get_engine
+    from arkiv.inlets.api import _get_context
 
-    engine = _get_engine()
+    ctx = _get_context()
     try:
-        engine.store.confirm_classification(item_id)
+        confirm_review_item(ctx, item_id)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     # Return empty string — HTMX will swap the item out of the queue
