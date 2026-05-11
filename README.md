@@ -119,6 +119,9 @@ model = "openai/gpt-oss-20b:fastest"
 base_url = "https://router.huggingface.co/v1"  # optional default
 ```
 
+For local Ollama models, Kurier checks available RAM during setup and `kurier doctor`.
+Benchmark defaults also pick a conservative local model for the detected memory.
+
 ## LLM Benchmarks
 
 Kurier includes a reproducible benchmark runner for classification, memory-search query assist,

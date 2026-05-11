@@ -43,7 +43,7 @@ def test_default_models_keep_paid_cloud_providers_opt_in(monkeypatch) -> None:
     models = default_models()
 
     assert "baseline" in models
-    assert "ollama:qwen2.5:7b" in models
+    assert any(model.startswith("ollama:") for model in models)
     assert not any(model.startswith(("openai:", "anthropic:")) for model in models)
 
 

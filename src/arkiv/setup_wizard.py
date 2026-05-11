@@ -14,6 +14,13 @@ from rich.panel import Panel
 from rich.table import Table
 
 from arkiv.core.config import DEFAULT_CONFIG_DIR, DEFAULT_CONFIG_FILE
+from arkiv.core.hardware import (
+    MODEL_RECOMMENDATIONS as _CORE_MODEL_RECOMMENDATIONS,
+)
+from arkiv.core.hardware import (
+    detect_ram_gb,
+    recommended_models_for_ram,
+)
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -25,11 +32,7 @@ console = Console()
 # - Models below 7B tend to misclassify (everything → same category)
 # - Minimum 7B recommended for reliable German/English classification
 MODEL_RECOMMENDATIONS = [
-    # (min_ram_gb, model_id, display_name, size_note)
-    (16, "qwen2.5:14b", "Qwen 2.5 14B", "~9 GB, best quality"),
-    (8, "qwen2.5:7b", "Qwen 2.5 7B", "~4.7 GB, recommended default"),
-    (4, "qwen2.5:3b", "Qwen 2.5 3B", "~2 GB, fast but less accurate"),
-    (4, "qwen2.5:1.5b", "Qwen 2.5 1.5B", "~1 GB, minimal (may misclassify)"),
+    (m.min_ram_gb, m.model_id, m.display_name, m.size_note) for m in _CORE_MODEL_RECOMMENDATIONS
 ]
 
 
@@ -133,53 +136,7 @@ def _check_system() -> dict[str, Any]:
 
 def _detect_ram() -> int:
     """Detect total system RAM in GB."""
-    system = platform.system()
-
-    try:
-        if system == "Darwin":
-            result = subprocess.run(
-                ["sysctl", "-n", "hw.memsize"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            return int(result.stdout.strip()) // (1024**3)
-
-        elif system == "Linux":
-            with open("/proc/meminfo") as f:
-                for line in f:
-                    if line.startswith("MemTotal:"):
-                        kb = int(line.split()[1])
-                        return kb // (1024 * 1024)
-
-        elif system == "Windows":
-            import ctypes
-
-            kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
-            c_ulong = ctypes.c_ulong
-
-            class MEMORYSTATUS(ctypes.Structure):
-                _fields_ = [
-                    ("dwLength", c_ulong),
-                    ("dwMemoryLoad", c_ulong),
-                    ("dwTotalPhys", ctypes.c_uint64),
-                    ("dwAvailPhys", ctypes.c_uint64),
-                    ("dwTotalPageFile", ctypes.c_uint64),
-                    ("dwAvailPageFile", ctypes.c_uint64),
-                    ("dwTotalVirtual", ctypes.c_uint64),
-                    ("dwAvailVirtual", ctypes.c_uint64),
-                    ("dwAvailExtendedVirtual", ctypes.c_uint64),
-                ]
-
-            mem = MEMORYSTATUS()
-            mem.dwLength = ctypes.sizeof(MEMORYSTATUS)
-            kernel32.GlobalMemoryStatusEx(ctypes.byref(mem))
-            return int(mem.dwTotalPhys) // (1024**3)
-
-    except Exception as e:
-        logger.debug("RAM detection failed: %s", e)
-
-    return 0
+    return detect_ram_gb()
 
 
 def _check_ollama_running() -> bool:
@@ -354,9 +311,10 @@ def _configure_ollama_new(sys_info: dict[str, Any]) -> dict[str, Any]:
 
     console.print("\n[bold]Recommended models for your system:[/bold]\n")
 
-    suitable = [m for m in MODEL_RECOMMENDATIONS if ram >= m[0]]
-    if not suitable:
-        suitable = MODEL_RECOMMENDATIONS[-1:]  # Smallest model as fallback
+    suitable_models = recommended_models_for_ram(ram)
+    suitable = [
+        (m.min_ram_gb, m.model_id, m.display_name, m.size_note) for m in suitable_models
+    ]
 
     for i, (_, _model_id, name, note) in enumerate(suitable, 1):
         console.print(f"  [bold]{i}.[/bold] {name} ({note})")

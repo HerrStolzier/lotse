@@ -14,6 +14,7 @@ from typing import Any, Literal
 from arkiv.core.classifier import DEFAULT_CATEGORIES, Classifier
 from arkiv.core.config import ArkivConfig, DatabaseConfig, LLMConfig
 from arkiv.core.engine import Engine
+from arkiv.core.hardware import default_eval_ollama_model
 from arkiv.core.llm import completion
 from arkiv.core.search_assistant import _build_prompt as build_search_prompt
 from arkiv.evals.ai_search_benchmark import (
@@ -26,7 +27,7 @@ from arkiv.evals.ai_search_benchmark import (
 TaskName = Literal["classifier", "search", "retrieval"]
 
 DEFAULT_REPORT_DIR = Path("eval-results")
-DEFAULT_MODELS = ("baseline", "ollama:qwen2.5:7b", "huggingface:openai/gpt-oss-20b:fastest")
+DEFAULT_HUGGINGFACE_MODEL = "huggingface:openai/gpt-oss-20b:fastest"
 
 
 @dataclass(frozen=True)
@@ -86,7 +87,7 @@ class BenchmarkReport:
 
 def default_models() -> list[str]:
     """Return conservative defaults; paid cloud APIs are opt-in via --models."""
-    return list(DEFAULT_MODELS)
+    return ["baseline", f"ollama:{default_eval_ollama_model()}", DEFAULT_HUGGINGFACE_MODEL]
 
 
 def parse_model_spec(raw: str) -> ModelSpec:

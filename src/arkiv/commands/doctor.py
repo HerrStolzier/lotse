@@ -11,6 +11,7 @@ import typer
 from rich.table import Table
 
 from arkiv.commands.common import DEFAULT_CONFIG_FILE, ArkivConfig, console
+from arkiv.core.hardware import detect_ram_gb, model_fits_ram
 
 
 def _count_visible_inbox_files(inbox_dir: Path) -> int:
@@ -149,6 +150,15 @@ def doctor(
                     )
             except Exception as e:
                 fail("LLM erreichbar", f"Ollama nicht erreichbar: {e}")
+
+            ram_gb = detect_ram_gb()
+            fits, detail = model_fits_ram(cfg.llm.model, ram_gb)
+            if fits is True:
+                ok("LLM/RAM-Fit", detail)
+            elif fits is False:
+                warn("LLM/RAM-Fit", detail)
+            else:
+                warn("LLM/RAM-Fit", detail)
         else:
             ok("LLM", f"{cfg.llm.provider} (API-Key via Env-Var)")
 
