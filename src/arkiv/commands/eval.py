@@ -20,6 +20,19 @@ from arkiv.evals.llm_benchmark import (
 eval_app = typer.Typer(help="Run Kurier evaluation benchmarks.")
 
 
+_TASK_LABELS = {
+    "classifier": "Dokumente erkennen",
+    "search": "Suchanfragen verstehen",
+    "retrieval": "Richtige Treffer finden",
+}
+
+_STATUS_LABELS = {
+    "ok": "[green]fertig[/green]",
+    "skipped_missing_credentials": "[yellow]übersprungen: Zugang fehlt[/yellow]",
+    "error": "[red]fehlgeschlagen[/red]",
+}
+
+
 def _tasks_from_options(task: str, run_all: bool) -> list[TaskName]:
     if run_all:
         return ["classifier", "search", "retrieval"]
@@ -56,35 +69,46 @@ def llm(
     parsed_models = [parse_model_spec(model) for model in selected_models]
 
     if dry_run:
-        console.print("[bold]Kurier LLM Benchmark dry run[/bold]")
-        console.print(f"Tasks: {', '.join(selected_tasks)}")
-        console.print(f"Models: {', '.join(model.label for model in parsed_models)}")
+        task_labels = [
+            _TASK_LABELS.get(selected_task, selected_task) for selected_task in selected_tasks
+        ]
+        console.print("[bold]Kurier Modell-Test: Probelauf[/bold]")
+        console.print(f"Geprüfte Aufgaben: {', '.join(task_labels)}")
+        console.print(f"Geprüfte Modelle: {', '.join(model.label for model in parsed_models)}")
+        console.print("[dim]Es wurden noch keine KI-Modelle aufgerufen.[/dim]")
         return
 
     report = run_benchmark(tasks=selected_tasks, model_specs=selected_models)
 
-    table = Table(title="Kurier LLM Benchmark")
-    table.add_column("Task")
-    table.add_column("Model")
-    table.add_column("Status")
-    table.add_column("Cases", justify="right")
-    table.add_column("Score", justify="right")
-    table.add_column("Latency", justify="right")
+    table = Table(title="Kurier Modell-Test")
+    table.add_column("Was wurde geprüft?")
+    table.add_column("Modell")
+    table.add_column("Ergebnis")
+    table.add_column("Fälle", justify="right")
+    table.add_column("Qualität", justify="right")
+    table.add_column("Zeit pro Fall", justify="right")
 
     for result in report.results:
-        latency = f"{result.avg_latency_ms:.0f} ms" if result.avg_latency_ms is not None else "-"
+        if result.avg_latency_ms is None:
+            latency = "nicht gemessen"
+        else:
+            latency = f"{result.avg_latency_ms:.0f} ms"
         table.add_row(
-            result.task,
+            _TASK_LABELS.get(result.task, result.task),
             result.model,
-            result.status,
+            _STATUS_LABELS.get(result.status, result.status),
             str(result.cases),
-            f"{result.overall_score:.2f}",
+            f"{result.overall_score:.0%}",
             latency,
         )
 
     console.print(table)
     report_path = write_report(report, output)
-    console.print(f"[green]✓[/green] Benchmark report written to {report_path}")
+    console.print(f"[green]✓[/green] Ausführlicher Bericht gespeichert: {report_path}")
+    console.print(
+        "[dim]Kurz gelesen: 100% wäre perfekt. Niedrigere Werte zeigen, wo ein Modell "
+        "bei Kurier noch unzuverlässig ist.[/dim]"
+    )
 
 
 def register(app: typer.Typer) -> None:

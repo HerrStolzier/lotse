@@ -95,8 +95,10 @@ def test_eval_llm_dry_run_lists_tasks_and_models() -> None:
     )
 
     assert result.exit_code == 0
-    assert "Kurier LLM Benchmark dry run" in result.stdout
-    assert "classifier, search, retrieval" in result.stdout
+    assert "Kurier Modell-Test: Probelauf" in result.stdout
+    assert "Dokumente erkennen" in result.stdout
+    assert "Suchanfragen verstehen" in result.stdout
+    assert "Richtige Treffer" in result.stdout
     assert "huggingface:openai/gpt-oss-20b:fastest" in result.stdout
 
 
@@ -111,5 +113,5 @@ def test_eval_llm_command_writes_report_with_mocked_runner(tmp_path: Path) -> No
         result = runner.invoke(app, ["eval", "llm", "--models", "baseline"])
 
     assert result.exit_code == 0
-    assert "Benchmark report written" in result.stdout
+    assert "Ausführlicher Bericht gespeichert" in result.stdout
     write.assert_called_once()
