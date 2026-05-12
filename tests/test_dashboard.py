@@ -52,14 +52,14 @@ def test_dashboard_static_assets_are_served(client: TestClient) -> None:
 def test_stats_partial(client: TestClient) -> None:
     resp = client.get("/dashboard/partials/stats")
     assert resp.status_code == 200
-    assert "Total Items" in resp.text
+    assert "Dokumente" in resp.text
     assert "0" in resp.text  # Empty database
 
 
 def test_recent_partial_empty(client: TestClient) -> None:
     resp = client.get("/dashboard/partials/recent")
     assert resp.status_code == 200
-    assert "No items processed yet" in resp.text
+    assert "Noch keine Dokumente verarbeitet" in resp.text
 
 
 def test_search_partial_empty_query(client: TestClient) -> None:
@@ -71,7 +71,7 @@ def test_search_partial_empty_query(client: TestClient) -> None:
 def test_search_partial_no_results(client: TestClient) -> None:
     resp = client.get("/dashboard/partials/search", params={"q": "nonexistent"})
     assert resp.status_code == 200
-    assert "No results" in resp.text
+    assert "Keine passenden Dokumente" in resp.text
 
 
 def test_upload_partial(client: TestClient) -> None:
@@ -96,7 +96,7 @@ def test_upload_partial(client: TestClient) -> None:
 
     assert resp.status_code == 200
     assert "rechnung" in resp.text
-    assert "Classified" in resp.text
+    assert "Erkannt als" in resp.text
 
 
 def test_search_after_upload(client: TestClient) -> None:

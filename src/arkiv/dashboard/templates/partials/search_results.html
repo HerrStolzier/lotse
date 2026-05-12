@@ -1,6 +1,8 @@
 {% if results %}
 <div class="space-y-2 fade-in">
-    <div class="text-sm text-gray-500 mb-2">{{ results | length }} result{{ 's' if results | length != 1 else '' }}</div>
+    <div class="text-sm text-gray-500 mb-2">
+        {{ results | length }} Treffer
+    </div>
     {% if memory and assist and (assist.rewrites or assist.notes) %}
     <div class="bg-arkiv-900/80 rounded-lg border border-arkiv-800 px-4 py-3 text-sm text-gray-300">
         <p class="font-medium text-white mb-1">KI-Hinweis</p>
@@ -29,7 +31,7 @@
                 <p class="text-sm font-medium text-white truncate">
                     {{ item.display_title or item.destination_name or 'Unbenanntes Dokument' }}
                 </p>
-                <p class="text-sm text-gray-200 truncate">{{ item.summary or 'No summary' }}</p>
+                <p class="text-sm text-gray-200 truncate">{{ item.summary or 'Keine Kurzinfo' }}</p>
                 {% if item.destination_name %}
                 <p class="text-xs text-gray-500 mt-1 truncate">{{ item.destination_name }}</p>
                 {% endif %}
@@ -49,6 +51,6 @@
 </div>
 {% elif query %}
 <div class="text-gray-500 text-sm py-4 text-center fade-in">
-    No results for "{{ query }}"
+    Keine passenden Dokumente für "{{ query }}"
 </div>
 {% endif %}
