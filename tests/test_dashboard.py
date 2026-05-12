@@ -37,6 +37,7 @@ def test_dashboard_loads(client: TestClient) -> None:
     assert "Kurier" in resp.text
     assert "htmx" in resp.text
     assert "styles.css" in resp.text
+    assert "Problem melden" in resp.text
 
 
 def test_dashboard_static_assets_are_served(client: TestClient) -> None:
@@ -72,6 +73,33 @@ def test_search_partial_no_results(client: TestClient) -> None:
     resp = client.get("/dashboard/partials/search", params={"q": "nonexistent"})
     assert resp.status_code == 200
     assert "Keine passenden Dokumente" in resp.text
+
+
+def test_search_partial_no_results_records_beta_event(client: TestClient, tmp_path: Path) -> None:
+    resp = client.get("/dashboard/partials/search", params={"q": "nonexistent"})
+    assert resp.status_code == 200
+
+    store = Store(tmp_path / "test.db")
+    events = store.recent_beta_events()
+    assert events[0]["event_type"] == "search_no_results"
+    assert events[0]["context"]["query"] == "nonexistent"
+
+
+def test_beta_problem_partial_records_manual_feedback(
+    client: TestClient, tmp_path: Path
+) -> None:
+    resp = client.post(
+        "/dashboard/partials/beta/problem",
+        data={"message": "Ich finde den Status nicht.", "page": "dashboard"},
+    )
+
+    assert resp.status_code == 200
+    assert "lokal notiert" in resp.text
+
+    store = Store(tmp_path / "test.db")
+    events = store.recent_beta_events()
+    assert events[0]["event_type"] == "manual_feedback"
+    assert events[0]["message"] == "Ich finde den Status nicht."
 
 
 def test_upload_partial(client: TestClient) -> None:

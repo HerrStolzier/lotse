@@ -27,6 +27,7 @@ def test_register_commands_populates_root_and_service_commands() -> None:
         "init",
         "doctor",
         "audit",
+        "beta",
         "eval",
         "serve",
         "plugins",

@@ -75,6 +75,39 @@
     </div>
 </div>
 
+<!-- Beta feedback -->
+<section>
+    <div class="bg-arkiv-900 rounded-xl border border-arkiv-800 p-6">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+                <h2 class="text-lg font-medium text-white mb-2">Problem melden</h2>
+                <p class="text-sm text-gray-400 max-w-2xl">
+                    Wenn etwas verwirrend ist, falsch wirkt oder hängen bleibt, notiere es hier kurz.
+                    Kurier speichert das nur lokal als Beta-Hinweis.
+                </p>
+            </div>
+            <form class="w-full lg:max-w-xl"
+                  hx-post="/dashboard/partials/beta/problem"
+                  hx-target="#beta-feedback-result">
+                <input type="hidden" name="page" value="dashboard" />
+                <label for="beta-message" class="sr-only">Problem beschreiben</label>
+                <textarea id="beta-message"
+                          name="message"
+                          rows="3"
+                          placeholder="Zum Beispiel: Ich finde nicht, wo ich den Status sehe..."
+                          class="w-full bg-arkiv-950 text-white placeholder-gray-500 border border-arkiv-800 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-arkiv-500 focus:border-transparent"></textarea>
+                <div class="mt-3 flex items-center justify-between gap-3">
+                    <div id="beta-feedback-result" class="text-sm"></div>
+                    <button type="submit"
+                            class="rounded-lg bg-arkiv-600 px-4 py-2 text-sm font-medium text-white hover:bg-arkiv-500 transition">
+                        Lokal notieren
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
 <!-- Tabs: Recent / Review -->
 <section>
     <div class="bg-arkiv-900 rounded-xl border border-arkiv-800 p-6">

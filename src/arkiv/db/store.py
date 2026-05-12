@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -86,6 +86,20 @@ CREATE VIRTUAL TABLE IF NOT EXISTS items_vec USING vec0(
 );
 """
 
+BETA_EVENTS_SCHEMA = """\
+CREATE TABLE IF NOT EXISTS beta_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT NOT NULL,
+    severity TEXT NOT NULL DEFAULT 'info',
+    message TEXT NOT NULL,
+    context_json TEXT,
+    item_id INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    resolved_at TEXT,
+    FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE SET NULL
+);
+"""
+
 
 def _load_sqlite_vec(conn: sqlite3.Connection) -> bool:
     """Try to load the sqlite-vec extension. Returns True if available."""
@@ -141,6 +155,7 @@ class Store:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._conn.executescript(TABLE_SCHEMA)
+        self._conn.executescript(BETA_EVENTS_SCHEMA)
         self._migrate_status_column_if_needed()
         self._migrate_title_columns_if_needed()
         self._migrate_fts_if_needed()
@@ -551,6 +566,71 @@ class Store:
             (item_id,),
         )
         self._conn.commit()
+
+    def record_beta_event(
+        self,
+        event_type: str,
+        message: str,
+        *,
+        severity: str = "info",
+        context: dict[str, Any] | None = None,
+        item_id: int | None = None,
+    ) -> int:
+        """Record a local beta signal for later UX hardening."""
+        cursor = self._conn.execute(
+            """INSERT INTO beta_events (
+                event_type, severity, message, context_json, item_id, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                event_type,
+                severity,
+                message,
+                json.dumps(context or {}, ensure_ascii=False),
+                item_id,
+                datetime.now(UTC).isoformat(),
+            ),
+        )
+        event_id = cursor.lastrowid or 0
+        self._conn.commit()
+        return event_id
+
+    def recent_beta_events(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Return recent local beta signals."""
+        cursor = self._conn.execute(
+            """SELECT beta_events.*, items.display_title
+               FROM beta_events
+               LEFT JOIN items ON items.id = beta_events.item_id
+               ORDER BY beta_events.created_at DESC
+               LIMIT ?""",
+            (limit,),
+        )
+        events = []
+        for row in cursor.fetchall():
+            event = dict(row)
+            try:
+                event["context"] = json.loads(event.pop("context_json") or "{}")
+            except json.JSONDecodeError:
+                event["context"] = {}
+            events.append(event)
+        return events
+
+    def beta_event_summary(self, days: int = 7) -> dict[str, Any]:
+        """Summarize beta signals from the last *days* days."""
+        since = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+        cursor = self._conn.execute(
+            """SELECT event_type, severity, COUNT(*) AS count
+               FROM beta_events
+               WHERE created_at >= ?
+               GROUP BY event_type, severity
+               ORDER BY count DESC, event_type ASC""",
+            (since,),
+        )
+        rows = [dict(row) for row in cursor.fetchall()]
+        return {
+            "days": days,
+            "total": sum(row["count"] for row in rows),
+            "by_type": rows,
+        }
 
     def close(self) -> None:
         self._conn.close()

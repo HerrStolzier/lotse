@@ -139,3 +139,23 @@ def test_update_category_marks_item_confirmed(store: Store) -> None:
     assert recent[0]["category"] == "brief"
     assert recent[0]["confidence"] == 1.0
     assert store.low_confidence() == []
+
+
+def test_beta_events_are_recorded_and_summarized(store: Store) -> None:
+    event_id = store.record_beta_event(
+        "search_no_results",
+        "Suche ohne Treffer",
+        severity="warn",
+        context={"query": "Telekom März"},
+    )
+
+    events = store.recent_beta_events()
+    assert events[0]["id"] == event_id
+    assert events[0]["event_type"] == "search_no_results"
+    assert events[0]["severity"] == "warn"
+    assert events[0]["context"]["query"] == "Telekom März"
+
+    summary = store.beta_event_summary(days=7)
+    assert summary["total"] == 1
+    assert summary["by_type"][0]["event_type"] == "search_no_results"
+    assert summary["by_type"][0]["count"] == 1

@@ -46,6 +46,7 @@ def test_help_lists_expected_primary_commands() -> None:
         "init",
         "doctor",
         "audit",
+        "beta",
         "eval",
         "serve",
         "plugins",
@@ -110,3 +111,17 @@ def test_search_help_uses_user_facing_language() -> None:
     assert result.exit_code == 0
     assert "Suchfrage in normaler Sprache" in result.stdout
     assert "Lasse Kurier unklare Suchfragen lokal verbessern" in result.stdout
+
+
+def test_beta_report_empty_state(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.toml"
+    db_path = tmp_path / "state" / "kurier.db"
+    inbox_dir = tmp_path / "inbox"
+    review_dir = tmp_path / "review"
+    _write_config(config_path, db_path, inbox_dir, review_dir)
+
+    result = runner.invoke(app, ["beta", "report", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Kurier Beta-Bericht" in result.stdout
+    assert "Noch keine Stolperer notiert." in result.stdout

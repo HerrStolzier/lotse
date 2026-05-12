@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader
 
 from arkiv import __version__
+from arkiv.application.beta import record_beta_event
 from arkiv.application.ingest import ingest_file as ingest_file_workflow
 from arkiv.application.review import confirm_review_item, correct_review_item, get_review_items
 from arkiv.application.search import search_items as search_items_workflow
@@ -78,6 +79,14 @@ async def search_partial(
 
     ctx = _get_context()
     results, assist = search_items_workflow(ctx, q.strip(), limit=20, mode="auto", memory=memory)
+    if not results:
+        record_beta_event(
+            ctx,
+            "search_no_results",
+            "Suche ohne Treffer",
+            severity="warn",
+            context={"query": q.strip(), "memory": memory},
+        )
     return _render(
         "partials/search_results.html",
         results=results,
@@ -110,6 +119,13 @@ async def upload_partial(
     try:
         tmp_path = await validate_and_save(file)
     except Exception as e:
+        record_beta_event(
+            ctx,
+            "upload_failed",
+            "Upload konnte nicht vorbereitet werden",
+            severity="error",
+            context={"filename": file.filename or "unbekannt", "error": str(e)},
+        )
         return _render(
             "partials/upload_result.html",
             success=False,
@@ -122,6 +138,13 @@ async def upload_partial(
         result = ingest_file_workflow(ctx, tmp_path)
     except Exception as e:
         tmp_path.unlink(missing_ok=True)
+        record_beta_event(
+            ctx,
+            "upload_failed",
+            "Dokument konnte nicht verarbeitet werden",
+            severity="error",
+            context={"filename": file.filename or "unbekannt", "error": str(e)},
+        )
         return _render(
             "partials/upload_result.html",
             success=False,
@@ -136,6 +159,18 @@ async def upload_partial(
     recent = get_recent_items(ctx, limit=1)
     category = recent[0]["category"] if recent else "unknown"
     confidence = recent[0]["confidence"] if recent else 0
+    item_id = recent[0]["id"] if recent else None
+    route_name = recent[0]["route_name"] if recent else ""
+
+    if confidence < 0.6 or route_name == "__review__":
+        record_beta_event(
+            ctx,
+            "low_confidence_review",
+            "Dokument braucht wahrscheinlich einen Blick",
+            severity="warn",
+            context={"category": category, "confidence": confidence, "route_name": route_name},
+            item_id=item_id,
+        )
 
     return _render(
         "partials/upload_result.html",
@@ -167,6 +202,14 @@ async def review_correct(
     ctx = _get_context()
     try:
         correct_review_item(ctx, item_id, category)
+        record_beta_event(
+            ctx,
+            "category_corrected",
+            "Kategorie manuell korrigiert",
+            severity="info",
+            context={"category": category.strip()},
+            item_id=item_id,
+        )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     # Return empty string — HTMX will swap the item out of the queue
@@ -181,7 +224,45 @@ async def review_confirm(item_id: int) -> HTMLResponse:
     ctx = _get_context()
     try:
         confirm_review_item(ctx, item_id)
+        record_beta_event(
+            ctx,
+            "classification_confirmed",
+            "Unsichere Einordnung bestätigt",
+            severity="info",
+            item_id=item_id,
+        )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     # Return empty string — HTMX will swap the item out of the queue
     return HTMLResponse("")
+
+
+@router.post("/partials/beta/problem", response_class=HTMLResponse)
+async def beta_problem(
+    message: Annotated[str, Form(description="Short problem description")],
+    page: Annotated[str, Form()] = "dashboard",
+) -> HTMLResponse:
+    """Record a manually reported beta problem."""
+    from arkiv.inlets.api import _get_context
+
+    ctx = _get_context()
+    text = message.strip()
+    if not text:
+        return _render(
+            "partials/beta_feedback_result.html",
+            success=False,
+            message="Schreib kurz dazu, was gerade nicht gepasst hat.",
+        )
+
+    record_beta_event(
+        ctx,
+        "manual_feedback",
+        text,
+        severity="info",
+        context={"page": page},
+    )
+    return _render(
+        "partials/beta_feedback_result.html",
+        success=True,
+        message="Danke, ist lokal notiert. Das hilft uns beim Feinschliff.",
+    )

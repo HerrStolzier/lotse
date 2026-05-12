@@ -6,6 +6,7 @@ import typer
 
 from arkiv.commands import (
     audit,
+    beta,
     doctor,
     email,
     eval,
@@ -32,6 +33,7 @@ def register_commands(app: typer.Typer) -> None:
     setup.register(app)
     doctor.register(app)
     audit.register(app)
+    beta.register(app)
     eval.register(app)
     server.register(app)
     plugins.register(app)
