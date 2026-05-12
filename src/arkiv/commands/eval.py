@@ -58,10 +58,10 @@ def llm(
     output: Annotated[Path | None, typer.Option("--output", "-o")] = None,
     dry_run: Annotated[
         bool,
-        typer.Option("--dry-run", help="Validate selected tasks/models without calling LLMs."),
+        typer.Option("--dry-run", help="Auswahl prüfen, ohne KI-Modelle aufzurufen."),
     ] = False,
 ) -> None:
-    """Run LLM quality benchmarks for Kurier."""
+    """KI-Modelle für Kurier testen und vergleichen."""
     selected_tasks = _tasks_from_options(task, run_all)
     selected_models = models or default_models()
 

@@ -14,11 +14,11 @@ from arkiv.commands.common import console, get_context
 
 
 def add(
-    path: Path = typer.Argument(..., help="File path, URL, or '-' for stdin"),
-    config: Path | None = typer.Option(None, "--config", "-c", help="Config file path"),
+    path: Path = typer.Argument(..., help="Dateipfad oder '-' für Text aus stdin"),
+    config: Path | None = typer.Option(None, "--config", "-c", help="Pfad zur Einstellungsdatei"),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ) -> None:
-    """Add a file or URL to be classified and routed."""
+    """Ein Dokument verarbeiten und einsortieren."""
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
 
@@ -32,7 +32,7 @@ def add(
     elif path.exists():
         result = ingest_file_workflow(ctx, path)
     else:
-        console.print(f"[red]Not found:[/red] {path}")
+        console.print(f"[red]Nicht gefunden:[/red] {path}")
         raise typer.Exit(1)
 
     if result.success:
@@ -46,7 +46,7 @@ def watch(
     config: Path | None = typer.Option(None, "--config", "-c"),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ) -> None:
-    """Watch the inbox directory and auto-process new files."""
+    """Eingangs-Ordner beobachten und neue Dateien automatisch verarbeiten."""
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
@@ -58,8 +58,8 @@ def watch(
     cfg = ctx.config
     engine = ctx.engine
 
-    console.print(f"[blue]Watching:[/blue] {cfg.inbox_dir}")
-    console.print("[dim]Press Ctrl+C to stop[/dim]")
+    console.print(f"[blue]Kurier beobachtet:[/blue] {cfg.inbox_dir}")
+    console.print("[dim]Zum Beenden Strg+C drücken[/dim]")
 
     def _ingest_and_discard(p: Path) -> None:
         result = engine.ingest_file(p)

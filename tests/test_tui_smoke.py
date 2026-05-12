@@ -28,7 +28,9 @@ def test_tui_menu_uses_user_facing_healthcheck_label() -> None:
     labels = [label for _key, label in MENU_ITEMS]
 
     assert "Gesundheitscheck" in labels
+    assert "Eingang überwachen" in labels
     assert not any("Doctor" in label for label in labels)
+    assert not any("Inbox" in label for label in labels)
 
 
 @pytest.mark.asyncio

@@ -51,7 +51,7 @@ def export(
         data = json.dumps(rows, indent=2, ensure_ascii=False)
         if output:
             output.write_text(data, encoding="utf-8")
-            console.print(f"[green]✓[/green] {len(rows)} Einträge exportiert nach {output}")
+            console.print(f"[green]✓[/green] {len(rows)} Dokumente exportiert nach {output}")
         else:
             console.print(data)
     elif format.lower() == "csv":
@@ -70,9 +70,9 @@ def export(
                 f_out.close()
 
         if output:
-            console.print(f"[green]✓[/green] {len(items)} Einträge exportiert nach {output}")
+            console.print(f"[green]✓[/green] {len(items)} Dokumente exportiert nach {output}")
     else:
-        console.print(f"[red]Unbekanntes Format:[/red] {format} (verwende 'csv' oder 'json')")
+        console.print(f"[red]Unbekanntes Format:[/red] {format} (verwende csv oder json)")
         raise typer.Exit(1)
 
 

@@ -13,23 +13,23 @@ from arkiv.commands.common import console, get_context
 
 
 def search(
-    query: str = typer.Argument(..., help="Search query (natural language)"),
+    query: str = typer.Argument(..., help="Suchfrage in normaler Sprache"),
     limit: int = typer.Option(20, "--limit", "-n"),
     mode: str = typer.Option(
         "auto",
         "--mode",
         "-m",
-        help="Search mode: 'auto' (hybrid), 'fts' (keyword), 'vec' (semantic)",
+        help="Suchart: auto, fts (Wortsuche), vec (Bedeutungssuche)",
     ),
     memory: bool = typer.Option(
         False,
         "--memory",
-        help="Use the local LLM to rewrite vague queries before retrieval",
+        help="Lasse Kurier unklare Suchfragen lokal verbessern",
     ),
     config: Path | None = typer.Option(None, "--config", "-c"),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
 ) -> None:
-    """Search processed items. Uses hybrid keyword + semantic search by default."""
+    """Verarbeitete Dokumente suchen."""
     if verbose:
         logging.basicConfig(level=logging.DEBUG)
 
@@ -37,25 +37,26 @@ def search(
     results, assist = search_items_workflow(ctx, query, limit=limit, mode=mode, memory=memory)
 
     if not results:
-        console.print("[dim]No results found.[/dim]")
+        console.print("[dim]Keine passenden Dokumente gefunden.[/dim]")
         return
 
     if ctx.engine.store.vec_enabled and mode in ("auto", "vec"):
-        console.print("[dim]Search mode: hybrid (keyword + semantic)[/dim]\n")
+        console.print("[dim]Suche: Wörter + Bedeutung kombiniert[/dim]\n")
     else:
-        console.print("[dim]Search mode: keyword (FTS5)[/dim]\n")
+        console.print("[dim]Suche: Wortsuche[/dim]\n")
 
     if memory and assist and assist.rewrites:
-        console.print(f"[dim]Query assist: {', '.join(assist.rewrites)}[/dim]\n")
+        rewrites = ", ".join(assist.rewrites)
+        console.print(f"[dim]Kurier hat zusätzlich gesucht nach: {rewrites}[/dim]\n")
 
-    table = Table(title=f"Results for '{query}'")
+    table = Table(title=f"Gefundene Dokumente für: {query}")
     table.add_column("ID", style="dim")
     table.add_column("Titel", style="bold")
-    table.add_column("Category", style="cyan")
-    table.add_column("Summary")
+    table.add_column("Art", style="cyan")
+    table.add_column("Kurzinfo")
     table.add_column("Warum")
-    table.add_column("Route", style="green")
-    table.add_column("Date", style="dim")
+    table.add_column("Ablage", style="green")
+    table.add_column("Datum", style="dim")
 
     for item in results:
         table.add_row(

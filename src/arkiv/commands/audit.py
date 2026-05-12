@@ -18,7 +18,9 @@ if TYPE_CHECKING:
 def audit(
     fix: bool = typer.Option(False, "--fix", help="Interactive fix mode"),
     skip_reclassify: bool = typer.Option(
-        False, "--skip-reclassify", help="Skip LLM re-classification (faster)"
+        False,
+        "--skip-reclassify",
+        help="KI-Neubewertung überspringen (schneller)",
     ),
     config: Path | None = typer.Option(None, "--config", "-c"),
     verbose: bool = typer.Option(False, "--verbose", "-v"),

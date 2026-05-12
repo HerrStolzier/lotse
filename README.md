@@ -1,51 +1,55 @@
-# Arkiv
+# Kurier
 
-**Universal capture → classify → route. Your AI-powered data pilot.**
+**Dokumente hineinlegen. Kurier versteht sie, sortiert sie und macht sie wieder auffindbar.**
 
-Arkiv takes any digital input — files, URLs, text — classifies it using AI, and routes it to the right destination. Think of it as an intelligent mail sorting facility for your digital life.
+Kurier ist ein lokaler Dokumentenhelfer: Du legst Dateien in einen Eingangs-Ordner,
+Kurier erkennt den Inhalt mit KI-Unterstützung und legt die Dokumente passend ab. Die Daten bleiben
+auf deinem Rechner; Cloud-Anbieter sind optional.
 
 ```
               ┌─────────┐
-  File ──────►│         │──► Archiv/Rechnungen
-  URL  ──────►│  ARKIV  │──► Leseliste/Artikel
-  Text ──────►│         │──► Code/Snippets
-  Mail ──────►│ classify │──► Review (unsicher)
-              │  route   │──► Plugin: Webhook
-              └─────────┘──► Plugin: Custom
+  Datei ─────►│          │──► Archiv/Rechnungen
+  Text  ─────►│  KURIER  │──► Leseliste/Artikel
+  Scan  ─────►│          │──► Code/Snippets
+  Mail  ─────►│ erkennen │──► Prüfen (unsicher)
+              │ ablegen  │──► Webhook / n8n
+              └──────────┘──► Weitere Erweiterungen
 ```
 
-## Features
+## Was Kurier kann
 
-- **Universal Intake** — Drop any file, paste text, pipe from stdin
-- **AI Classification** — LLM-powered content understanding (Ollama, OpenAI, Anthropic, HuggingFace)
-- **Smart Routing** — Category-based rules route items to folders, webhooks, or custom destinations
-- **Full-Text Search** — SQLite FTS5 search across all processed items
-- **Plugin System** — Extend with pip-installable plugins (powered by pluggy)
-- **Local-First** — Your data stays on your machine. No cloud required.
-- **Filesystem Watcher** — Auto-process files dropped into your inbox directory
+- **Eingang überwachen** — neue Dateien im Eingangs-Ordner automatisch verarbeiten
+- **Dokumente verstehen** — lokale KI per Ollama, optional OpenAI, Anthropic oder Hugging Face
+- **Passend ablegen** — nach Dokumentart in Ordner, Webhooks oder spätere Erweiterungen routen
+- **Wiederfinden** — Wortsuche plus intelligente Suche nach Bedeutung
+- **Prüfen statt raten** — unsichere Fälle landen im Ordner `Prüfen`
+- **Lokal zuerst** — private Dokumente bleiben auf deinem Rechner
 
-## Quick Start
+## Schnellstart
 
 ```bash
-# Install
+# Installieren
 pipx install "kurier @ git+https://github.com/HerrStolzier/kurier.git"
 
-# Make sure Ollama is running with a model
+# Lokales KI-Modell vorbereiten
 ollama pull qwen2.5:7b
 
-# One-time setup
+# Einmal einrichten
 kurier init
 
-# Optional first-run check
+# Prüfen, ob alles startklar ist
 kurier doctor --fix
 
-# Start Kurier
+# Kurier öffnen
 kurier
 ```
 
-That's it. `kurier init` writes a starter config and creates the default folders. `kurier doctor --fix` is a safe first-run helper: it creates any still-missing directories from your config and shows whether your local model setup looks reachable.
+`kurier init` erstellt die Einstellungen und die Standard-Ordner. `kurier doctor --fix` ist ein
+sicherer Startcheck: fehlende Ordner werden angelegt und Kurier zeigt, ob das lokale KI-Modell
+erreichbar ist.
 
-After that, `kurier` launches the interactive TUI where you can classify files, search, monitor your inbox, and more — all from one interface.
+Danach startet `kurier` die interaktive Oberfläche. Dort kannst du Dateien hinzufügen, den Eingang
+überwachen, suchen und den Gesundheitscheck ausführen.
 
 > **Alternative install methods:**
 > ```bash
@@ -56,26 +60,26 @@ After that, `kurier` launches the interactive TUI where you can classify files, 
 > uv pip install "kurier @ git+https://github.com/HerrStolzier/kurier.git"
 > ```
 
-### CLI Commands
+### Befehle
 
-All features are also available as individual commands:
+Alle wichtigen Funktionen gibt es auch einzeln:
 
 ```bash
-kurier                         # Interactive TUI (default)
-kurier add invoice.pdf         # Classify and route a file
-kurier watch                   # Auto-process files in inbox
-kurier search "Rechnung"       # Hybrid keyword + semantic search
-kurier status                  # Processing statistics
-kurier undo                    # Undo last routing action
-kurier export --format csv     # Export all items as CSV
-kurier doctor                  # Check system health
-kurier doctor --fix            # Create missing config directories
-kurier init                    # Interactive setup wizard
+kurier                         # interaktive Oberfläche öffnen
+kurier add rechnung.pdf        # ein Dokument verarbeiten
+kurier watch                   # den Eingangs-Ordner beobachten
+kurier search "Rechnung"       # Dokumente suchen
+kurier status                  # zeigen, was verarbeitet wurde
+kurier undo                    # letzte Ablage rückgängig machen
+kurier export --format csv     # Dokumentliste exportieren
+kurier doctor                  # Gesundheitscheck ausführen
+kurier doctor --fix            # fehlende Ordner automatisch anlegen
+kurier init                    # Einrichtung starten
 ```
 
-## Configuration
+## Einstellungen
 
-Kurier uses a TOML config file at `~/.config/kurier/config.toml`:
+Kurier speichert seine Einstellungen in `~/.config/kurier/config.toml`:
 
 ```toml
 [llm]
@@ -88,22 +92,22 @@ model = "BAAI/bge-small-en-v1.5"
 
 [routes.archiv]
 type = "folder"
-path = "~/Documents/Arkiv/Archiv"
+path = "~/Documents/Kurier/Archiv"
 categories = ["rechnung", "vertrag", "brief"]
 confidence_threshold = 0.7
 
 [routes.artikel]
 type = "folder"
-path = "~/Documents/Arkiv/Artikel"
+path = "~/Documents/Kurier/Artikel"
 categories = ["artikel", "paper", "tutorial"]
 confidence_threshold = 0.6
 ```
 
-## LLM Providers
+## KI-Anbieter
 
-Arkiv supports any LLM provider via direct HTTP calls (`core/llm.py`):
+Kurier ruft KI-Anbieter zentral über `src/arkiv/core/llm.py` auf:
 
-| Provider | Config |
+| Anbieter | Einstellung |
 |----------|--------|
 | Ollama (local) | `provider = "ollama"`, `model = "qwen2.5:7b"` |
 | OpenAI | `provider = "openai"`, `model = "gpt-4o-mini"` |
@@ -119,8 +123,9 @@ model = "openai/gpt-oss-20b:fastest"
 base_url = "https://router.huggingface.co/v1"  # optional default
 ```
 
-For local Ollama models, Kurier checks available RAM during setup and `kurier doctor`.
-Benchmark defaults also pick a conservative local model for the detected memory.
+Für lokale Ollama-Modelle prüft Kurier beim Setup und im Gesundheitscheck, ob der verfügbare
+Arbeitsspeicher ungefähr zum Modell passt. Die Modelltests wählen ebenfalls ein konservatives
+Standardmodell für den erkannten Rechner.
 
 ## Model Quality Checks
 
@@ -177,16 +182,16 @@ curl -X POST http://localhost:8790/ingest/file -F "file=@invoice.pdf"
 curl "http://localhost:8790/search?q=Telefonkosten&mode=auto"
 ```
 
-## Plugins
+## Erweiterungen
 
-Arkiv is built to be extended. Plugins can:
+Kurier kann später erweitert werden. Erweiterungen können zum Beispiel:
 
-- **Pre-process** content before classification
-- **Post-process** classification results
-- **Add custom routes** (Slack, Notion, webhooks, ...)
-- **React to routing events** (notifications, logging, ...)
+- Inhalte vor der Erkennung vorbereiten
+- Ergebnisse nachbearbeiten
+- eigene Ablageziele ergänzen, etwa Slack, Notion oder Webhooks
+- auf Ablage-Ereignisse reagieren, etwa mit Benachrichtigungen
 
-### Writing a Plugin
+### Erweiterung schreiben
 
 ```python
 # my_arkiv_plugin.py
@@ -204,7 +209,7 @@ def on_routed(path: str, destination: str, route_name: str) -> None:
 my-plugin = "my_arkiv_plugin"
 ```
 
-See the [Plugin Guide](docs/plugins.md) for details.
+Details stehen im [Plugin Guide](docs/plugins.md).
 
 ## Architecture
 
@@ -226,16 +231,16 @@ src/arkiv/
 └── routes/             # Built-in route handlers
 ```
 
-## Current Product Status
+## Aktueller Produktstatus
 
-This is the honest status snapshot as of **2026-04-10**:
+Stand: **2026-05-12**.
 
-| Status | What it means in practice |
+| Status | Was das praktisch bedeutet |
 |--------|----------------------------|
-| **Stable** | Fresh install, `kurier init`, `kurier doctor --fix`, file intake via `kurier add`, folder routing, watcher flow, API server, dashboard review fixes, undo/export, and the basic local-first archive flow have been exercised end-to-end. |
-| **Usable** | AI-assisted memory search is integrated and works in the product, but it still depends heavily on model quality and has not yet gone through deeper comparative benchmarking. Webhook routing/plugin delivery has now been exercised against a live local endpoint, so it is no longer just theoretical, but external SaaS targets still have lighter validation than the core flow. |
-| **Experimental** | TUI support is present and starts cleanly, but deeper interactive coverage is still lighter than the core CLI/dashboard path. |
-| **Deferred** | Browser extension work is intentionally out of scope for now. Email inlet support remains an optional-later item rather than part of the current core experience. |
+| **Stabil** | Installation, Einrichtung, Gesundheitscheck, Datei-Verarbeitung, Ordner-Ablage, Undo/Export und der lokale Grundfluss sind end-to-end geprüft. |
+| **Nutzbar** | KI-gestützte Suche, Benchmarksystem, n8n/Webhook-Anbindung und RAM-bewusste Modellwahl sind integriert. Die Qualität hängt weiter vom gewählten Modell ab. |
+| **Im Feinschliff** | Die Oberfläche wird gerade konsequent auf verständliche Alltagssprache umgestellt, damit Kurier weniger wie ein Entwicklerwerkzeug wirkt. |
+| **Später** | Browser-Erweiterung und voll ausgebaute E-Mail-Zuführung bleiben bewusst optional und gehören nicht zum aktuellen Kern. |
 
 If you want the longer rationale behind this snapshot, see [docs/product-maturity.md](docs/product-maturity.md).
 

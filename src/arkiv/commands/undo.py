@@ -28,7 +28,7 @@ def undo(
     if item_id is not None:
         item = store.undo_item(item_id)
         if item is None:
-            console.print(f"[red]Kein Eintrag mit ID {item_id} gefunden.[/red]")
+            console.print(f"[red]Kein Dokument mit ID {item_id} gefunden.[/red]")
             raise typer.Exit(1)
         items = [item]
     else:
@@ -38,7 +38,7 @@ def undo(
             raise typer.Exit(1)
         item = store.undo_item(recent[0]["id"])
         if item is None:
-            console.print("[red]Letzten Eintrag konnte nicht geladen werden.[/red]")
+            console.print("[red]Das letzte Dokument konnte nicht geladen werden.[/red]")
             raise typer.Exit(1)
         items = [item]
 
@@ -50,7 +50,7 @@ def undo(
         if dest is None or not dest.exists():
             console.print(f"[yellow]Datei nicht mehr vorhanden:[/yellow] {dest}")
             store.update_status(iid, "undone")
-            console.print(f"[dim]Status auf 'undone' gesetzt (ID {iid}).[/dim]")
+            console.print(f"[dim]In Kurier als rückgängig markiert (ID {iid}).[/dim]")
             continue
 
         if orig.exists():

@@ -23,7 +23,7 @@ def _count_visible_inbox_files(inbox_dir: Path) -> int:
 def _doctor_directory_targets(cfg: ArkivConfig) -> list[tuple[str, Path]]:
     targets = [
         ("Datenbank-Ordner", cfg.database.path.parent),
-        ("Inbox", cfg.inbox_dir),
+        ("Eingang", cfg.inbox_dir),
         ("Prüfen", cfg.review_dir),
     ]
     for name, route in cfg.routes.items():
@@ -37,7 +37,7 @@ def doctor(
     fix: bool = typer.Option(
         False,
         "--fix",
-        help="Lege fehlende Ordner aus der Config direkt an",
+        help="Lege fehlende Ordner aus den Einstellungen direkt an",
     ),
 ) -> None:
     """Prüfe, ob Kurier startklar ist und was noch Aufmerksamkeit braucht."""
@@ -101,9 +101,9 @@ def doctor(
 
             if backlog:
                 noun = "Datei" if backlog == 1 else "Dateien"
-                warn("Inbox", f"{backlog} {noun} liegen im Eingang")
+                warn("Eingang", f"{backlog} {noun} liegen im Eingang")
             else:
-                ok("Inbox", "Leer")
+                ok("Eingang", "Leer")
 
             if review_backlog:
                 noun = "Datei" if review_backlog == 1 else "Dateien"

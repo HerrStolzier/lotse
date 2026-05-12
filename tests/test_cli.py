@@ -127,7 +127,7 @@ def test_init_quick_creates_notizen_route_and_next_step(tmp_path: Path, monkeypa
 
 
 def test_service_status_uses_human_readable_labels(tmp_path: Path, monkeypatch) -> None:
-    """Service status should avoid internal labels like PID, Log, or Inbox."""
+    """Service status should avoid internal labels like PID, Log, or technical inbox wording."""
     config_path = tmp_path / "config.toml"
     inbox_dir = tmp_path / "Kurier" / "Eingang"
     review_dir = tmp_path / "Kurier" / "Pruefen"

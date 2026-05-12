@@ -8,15 +8,18 @@ from arkiv.commands.common import console
 
 
 def plugins() -> None:
-    """List installed plugins."""
+    """Installierte Erweiterungen anzeigen."""
     from arkiv.plugins.manager import PluginManager
 
     pm = PluginManager()
     plugin_list = pm.list_plugins()
 
     if not plugin_list:
-        console.print("[dim]No plugins installed.[/dim]")
-        console.print("[dim]Install plugins with: pip install arkiv-<plugin-name>[/dim]")
+        console.print("[dim]Keine Erweiterungen installiert.[/dim]")
+        console.print(
+            "[dim]Erweiterungen kannst du später ergänzen, "
+            "z. B. für Webhooks oder andere Ziele.[/dim]"
+        )
         return
 
     for name in plugin_list:

@@ -101,4 +101,12 @@ def test_plugins_reports_empty_state_without_error(monkeypatch) -> None:
     result = runner.invoke(app, ["plugins"])
 
     assert result.exit_code == 0
-    assert "No plugins installed." in result.stdout
+    assert "Keine Erweiterungen installiert." in result.stdout
+
+
+def test_search_help_uses_user_facing_language() -> None:
+    result = runner.invoke(app, ["search", "--help"])
+
+    assert result.exit_code == 0
+    assert "Suchfrage in normaler Sprache" in result.stdout
+    assert "Lasse Kurier unklare Suchfragen lokal verbessern" in result.stdout

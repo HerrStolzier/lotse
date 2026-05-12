@@ -38,7 +38,7 @@ LOGO = """
 
 MENU_ITEMS: list[tuple[str, str]] = [
     ("1", "Datei hinzufügen"),
-    ("2", "Inbox überwachen"),
+    ("2", "Eingang überwachen"),
     ("3", "Suchen"),
     ("4", "Status & Statistiken"),
     ("5", "Letzte Einträge"),
@@ -605,7 +605,7 @@ class RecentScreen(Screen[None]):
 
 
 class WatchScreen(Screen[None]):
-    """Live-Überwachung des Inbox-Verzeichnisses mit Echtzeit-Log."""
+    """Live-Überwachung des Eingangs-Ordners mit Echtzeit-Meldungen."""
 
     BINDINGS: ClassVar[list[Binding]] = [
         Binding("s", "toggle_watch", "Start/Stop", show=True),
@@ -630,7 +630,7 @@ class WatchScreen(Screen[None]):
     def compose(self) -> ComposeResult:
         inbox_path = self._get_inbox_path()
         yield Static(
-            f"[bold #f5a623]Inbox überwachen: {inbox_path}[/bold #f5a623]  "
+            f"[bold #f5a623]Eingang überwachen: {inbox_path}[/bold #f5a623]  "
             "[dim]s=Start/Stop  ESC=Zurück[/dim]",
             id="watch-header",
         )
@@ -982,7 +982,7 @@ class DoctorModal(ModalScreen[None]):
                 fail("Einstellungen laden", str(e))
                 cfg_valid = False
 
-        # Check 2: Auto-Sortierung / Inbox
+        # Check 2: Auto-Sortierung / Eingang
         if cfg is not None:
             from arkiv import service
 
@@ -1606,7 +1606,7 @@ class SetupWizardScreen(Screen[None]):
         # Falls kein Ergebnis: Nutzer kann manuell im Input-Feld eingeben
 
     def _set_inbox_path(self, path: Path) -> None:
-        """Inbox-Pfad aktualisieren (im TUI-Thread)."""
+        """Eingangs-Pfad aktualisieren (im TUI-Thread)."""
         self._inbox_path = path
         with contextlib.suppress(NoMatches):
             self.query_one("#wizard-path-display", Static).update(

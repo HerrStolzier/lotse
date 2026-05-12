@@ -114,7 +114,7 @@ def init(
 
     DEFAULT_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     default_config = (
-        "# Kurier Configuration\n"
+        "# Kurier Einstellungen\n"
         "# https://github.com/HerrStolzier/kurier\n\n"
         '[llm]\nprovider = "ollama"\nmodel = "qwen2.5:7b"\n'
         'base_url = "http://localhost:11434"\ntemperature = 0.1\n\n'
