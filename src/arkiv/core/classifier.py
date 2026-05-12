@@ -105,8 +105,24 @@ def _extract_invoice_period(content: str) -> str | None:
     return None
 
 
+def _clean_suggested_filename(value: str) -> str:
+    """Normalize model-proposed filenames before they reach storage or search."""
+    cleaned = value.replace("_", " ")
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
 def _postprocess_classification(content: str, classification: Classification) -> Classification:
     """Apply deterministic cleanup for common LLM filename mistakes."""
+    classification = Classification(
+        category=classification.category,
+        confidence=classification.confidence,
+        summary=classification.summary,
+        tags=classification.tags,
+        language=classification.language,
+        suggested_filename=_clean_suggested_filename(classification.suggested_filename),
+    )
+
     if classification.category != "rechnung":
         return classification
 

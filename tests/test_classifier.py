@@ -114,3 +114,18 @@ def test_postprocess_replaces_abbreviated_invoice_provider_with_issuer() -> None
     result = _postprocess_classification(content, classification)
 
     assert result.suggested_filename == "Rechnung Stadtwerke Musterstadt Juli 2026"
+
+
+def test_postprocess_replaces_underscores_in_suggested_filename() -> None:
+    classification = Classification(
+        category="notiz",
+        confidence=0.9,
+        summary="Teammeeting",
+        tags=["notiz"],
+        language="de",
+        suggested_filename="Teammeeting_Projekt_Kurier",
+    )
+
+    result = _postprocess_classification("Teammeeting Projekt Kurier", classification)
+
+    assert result.suggested_filename == "Teammeeting Projekt Kurier"

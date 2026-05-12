@@ -1,4 +1,4 @@
-"""Arkiv webhook plugin — send classified items to webhook URLs."""
+"""Kurier webhook plugin — send classified items to webhook URLs."""
 
 from __future__ import annotations
 
@@ -98,7 +98,7 @@ def _format_slack(item_data: dict, timestamp: str) -> dict:
                 "text": {
                     "type": "mrkdwn",
                     "text": (
-                        f"*Arkiv* classified a new item\n\n"
+                        f"*Kurier* classified a new item\n\n"
                         f">*{summary}*\n"
                         f">Category: `{category}` "
                         f"({confidence:.0%} confidence)\n"
@@ -119,7 +119,7 @@ def _format_discord(item_data: dict, timestamp: str) -> dict:
     return {
         "embeds": [
             {
-                "title": "Arkiv — New Item Classified",
+                "title": "Kurier — New Item Classified",
                 "description": summary,
                 "color": 3447003,  # Blue
                 "fields": [
@@ -146,7 +146,7 @@ def _is_discord_url(url: str) -> bool:
 
 def _headers_for_url(url: str) -> dict[str, str]:
     """Return appropriate headers for the webhook URL."""
-    headers = {"Content-Type": "application/json", "User-Agent": "Arkiv/0.2"}
+    headers = {"Content-Type": "application/json", "User-Agent": "Kurier/0.4"}
     return headers
 
 
