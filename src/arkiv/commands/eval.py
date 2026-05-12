@@ -103,6 +103,26 @@ def llm(
         )
 
     console.print(table)
+
+    if report.recommendation is not None:
+        rec = report.recommendation
+        latency = (
+            f", im Schnitt {rec.avg_latency_ms:.0f} ms pro Fall"
+            if rec.avg_latency_ms is not None
+            else ""
+        )
+        console.print(
+            "[green]Empfehlung:[/green] "
+            f"{rec.model} ist aktuell die beste Wahl "
+            f"({rec.overall_score:.0%} Qualität{latency})."
+        )
+        console.print(f"[dim]{rec.reason}[/dim]")
+    else:
+        console.print(
+            "[yellow]Keine Modell-Empfehlung möglich.[/yellow] "
+            "Es wurde kein nutzbares KI-Modell vollständig getestet."
+        )
+
     report_path = write_report(report, output)
     console.print(f"[green]✓[/green] Ausführlicher Bericht gespeichert: {report_path}")
     console.print(

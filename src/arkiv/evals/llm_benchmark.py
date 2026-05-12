@@ -72,16 +72,31 @@ class TaskSummary:
 
 
 @dataclass(frozen=True)
+class ModelRecommendation:
+    model: str
+    provider: str
+    overall_score: float
+    successful_tasks: int
+    total_tasks: int
+    avg_latency_ms: float | None
+    reason: str
+
+
+@dataclass(frozen=True)
 class BenchmarkReport:
     created_at: str
     results: list[TaskSummary]
     details: list[CaseDetail]
+    recommendation: ModelRecommendation | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "created_at": self.created_at,
             "results": [asdict(result) for result in self.results],
             "details": [asdict(detail) for detail in self.details],
+            "recommendation": (
+                asdict(self.recommendation) if self.recommendation is not None else None
+            ),
         }
 
 
@@ -510,7 +525,64 @@ def run_benchmark(
         created_at=datetime.now(UTC).isoformat(),
         results=results,
         details=details,
+        recommendation=recommend_model(results),
     )
+
+
+def recommend_model(results: list[TaskSummary]) -> ModelRecommendation | None:
+    """Pick the best usable model from benchmark results."""
+    grouped: dict[str, list[TaskSummary]] = {}
+    for result in results:
+        if result.provider == "baseline" or result.status != "ok" or result.cases <= 0:
+            continue
+        grouped.setdefault(result.model, []).append(result)
+
+    if not grouped:
+        return None
+
+    recommendations: list[ModelRecommendation] = []
+    for model, model_results in grouped.items():
+        score = sum(result.overall_score for result in model_results) / len(model_results)
+        latencies = [
+            result.avg_latency_ms
+            for result in model_results
+            if result.avg_latency_ms is not None
+        ]
+        avg_latency = sum(latencies) / len(latencies) if latencies else None
+        provider = model_results[0].provider
+        recommendations.append(
+            ModelRecommendation(
+                model=model,
+                provider=provider,
+                overall_score=score,
+                successful_tasks=len(model_results),
+                total_tasks=len(results),
+                avg_latency_ms=avg_latency,
+                reason=_recommendation_reason(score, avg_latency),
+            )
+        )
+
+    return max(
+        recommendations,
+        key=lambda item: (
+            item.successful_tasks,
+            item.overall_score,
+            -(item.avg_latency_ms or 999_999.0),
+        ),
+    )
+
+
+def _recommendation_reason(score: float, avg_latency_ms: float | None) -> str:
+    quality = "sehr gute" if score >= 0.85 else "solide" if score >= 0.65 else "noch schwache"
+    if avg_latency_ms is None:
+        return f"{quality} Qualität im Kurier-Test."
+    if avg_latency_ms <= 2_500:
+        speed = "schnell genug für den Alltag"
+    elif avg_latency_ms <= 10_000:
+        speed = "brauchbar, aber nicht besonders schnell"
+    else:
+        speed = "eher langsam"
+    return f"{quality} Qualität im Kurier-Test und {speed}."
 
 
 def write_report(report: BenchmarkReport, output: Path | None = None) -> Path:
