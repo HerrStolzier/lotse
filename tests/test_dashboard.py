@@ -57,6 +57,24 @@ def test_stats_partial(client: TestClient) -> None:
     assert "0" in resp.text  # Empty database
 
 
+def test_stats_partial_shows_open_webhooks(client: TestClient) -> None:
+    from arkiv.inlets.api import _get_context
+
+    _get_context().engine.store.enqueue_webhook(
+        item_id=None,
+        route_name="n8n",
+        url="http://localhost:5678/webhook/kurier",
+        payload={"payload_version": 1},
+        last_error="down",
+    )
+
+    resp = client.get("/dashboard/partials/stats")
+
+    assert resp.status_code == 200
+    assert "1 Webhook offen" in resp.text
+    assert "kurier webhooks retry" in resp.text
+
+
 def test_recent_partial_empty(client: TestClient) -> None:
     resp = client.get("/dashboard/partials/recent")
     assert resp.status_code == 200

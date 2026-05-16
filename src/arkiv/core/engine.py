@@ -28,8 +28,8 @@ class Engine:
     def __init__(self, config: ArkivConfig) -> None:
         self.config = config
         self.classifier = Classifier(config.llm, arkiv_config=config)
-        self.router = Router(config.routes, config.review_dir)
         self.store = Store(config.database.path)
+        self.router = Router(config.routes, config.review_dir, store=self.store)
         self.plugin_manager = PluginManager()
         self._embedder: EmbeddingEngine | None = None
         self._query_assistant: QueryAssistant | None = None
@@ -109,7 +109,7 @@ class Engine:
 
         # Step 6: Try to route
         try:
-            result = self.router.execute(file_path, classification)
+            result = self.router.execute(file_path, classification, item_id=item_id)
             self.store.update_status(item_id, "routed")
             self.store.update_routing_metadata(item_id, result.destination, result.route_name)
         except Exception as exc:

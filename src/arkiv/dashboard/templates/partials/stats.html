@@ -1,37 +1,59 @@
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 fade-in">
-    <div class="bg-arkiv-900 rounded-xl border border-arkiv-800 p-5">
-        <div class="text-sm text-gray-400">Dokumente</div>
-        <div class="text-3xl font-bold text-white mt-1">{{ stats.total_items }}</div>
+  <div class="bg-arkiv-900 rounded-xl border border-arkiv-800 p-5">
+    <div class="text-sm text-gray-400">Dokumente</div>
+    <div class="text-3xl font-bold text-white mt-1">
+      {{ stats.total_items }}
     </div>
-    <div class="bg-arkiv-900 rounded-xl border border-arkiv-800 p-5">
-        <div class="text-sm text-gray-400">Dokumentarten</div>
-        <div class="text-3xl font-bold text-white mt-1">{{ stats.categories | length }}</div>
+  </div>
+  <div class="bg-arkiv-900 rounded-xl border border-arkiv-800 p-5">
+    <div class="text-sm text-gray-400">Dokumentarten</div>
+    <div class="text-3xl font-bold text-white mt-1">
+      {{ stats.categories | length }}
     </div>
-    <div class="bg-arkiv-900 rounded-xl border border-arkiv-800 p-5">
-        <div class="text-sm text-gray-400">Sortierregeln</div>
-        <div class="text-3xl font-bold text-white mt-1">{{ stats.routes | length }}</div>
+  </div>
+  <div class="bg-arkiv-900 rounded-xl border border-arkiv-800 p-5">
+    <div class="text-sm text-gray-400">Sortierregeln</div>
+    <div class="text-3xl font-bold text-white mt-1">
+      {{ stats.routes | length }}
     </div>
-    <div class="bg-arkiv-900 rounded-xl border border-arkiv-800 p-5">
-        <div class="text-sm text-gray-400">Intelligente Suche</div>
-        <div class="mt-1">
-            {% if stats.vec_enabled %}
-                <span class="text-green-400 font-medium">Bereit</span>
-                <span class="text-gray-500 text-sm ml-1">({{ stats.embeddings or 0 }} Suchsignale)</span>
-            {% else %}
-                <span class="text-yellow-400 font-medium">Nicht aktiv</span>
-            {% endif %}
-        </div>
+  </div>
+  <div class="bg-arkiv-900 rounded-xl border border-arkiv-800 p-5">
+    <div class="text-sm text-gray-400">Intelligente Suche</div>
+    <div class="mt-1">
+      {% if stats.vec_enabled %}
+      <span class="text-green-400 font-medium">Bereit</span>
+      <span class="text-gray-500 text-sm ml-1"
+        >({{ stats.embeddings or 0 }} Suchsignale)</span
+      >
+      {% else %}
+      <span class="text-yellow-400 font-medium">Nicht aktiv</span>
+      {% endif %}
     </div>
+  </div>
 </div>
 
-{% if stats.categories %}
+{% if stats.webhooks_open %}
+<div
+  class="mt-4 rounded-lg border border-red-800 bg-red-900/30 p-4 text-red-300"
+>
+  <div class="font-medium">
+    {{ stats.webhooks_open }} Webhook{% if stats.webhooks_open != 1 %}s{% endif
+    %} offen
+  </div>
+  <div class="text-sm mt-1">
+    Erneut senden mit: <code>kurier webhooks retry</code>
+  </div>
+</div>
+{% endif %} {% if stats.categories %}
 <div class="mt-4 flex flex-wrap gap-2">
-    {% for cat, count in stats.categories.items() %}
-    <span class="inline-flex items-center gap-1.5 bg-arkiv-800 text-gray-300 text-sm px-3 py-1 rounded-full">
-        <span class="w-2 h-2 rounded-full bg-arkiv-500"></span>
-        {{ cat }}
-        <span class="text-gray-500">{{ count }}</span>
-    </span>
-    {% endfor %}
+  {% for cat, count in stats.categories.items() %}
+  <span
+    class="inline-flex items-center gap-1.5 bg-arkiv-800 text-gray-300 text-sm px-3 py-1 rounded-full"
+  >
+    <span class="w-2 h-2 rounded-full bg-arkiv-500"></span>
+    {{ cat }}
+    <span class="text-gray-500">{{ count }}</span>
+  </span>
+  {% endfor %}
 </div>
 {% endif %}

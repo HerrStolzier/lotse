@@ -8,9 +8,13 @@ import shutil
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from arkiv.core.classifier import Classification
 from arkiv.core.config import RouteConfig
+
+if TYPE_CHECKING:
+    from arkiv.db.store import Store
 
 logger = logging.getLogger(__name__)
 
@@ -104,9 +108,15 @@ class RouteResult:
 class Router:
     """Matches classifications to routes and executes them."""
 
-    def __init__(self, routes: dict[str, RouteConfig], review_dir: Path) -> None:
+    def __init__(
+        self,
+        routes: dict[str, RouteConfig],
+        review_dir: Path,
+        store: Store | None = None,
+    ) -> None:
         self.routes = routes
         self.review_dir = review_dir
+        self.store = store
 
     def find_routes(self, classification: Classification) -> list[tuple[str, RouteConfig]]:
         """Find ALL matching routes for a classification (supports fan-out)."""
@@ -125,7 +135,12 @@ class Router:
         matches = self.find_routes(classification)
         return matches[0] if matches else None
 
-    def execute(self, source_path: Path, classification: Classification) -> RouteResult:
+    def execute(
+        self,
+        source_path: Path,
+        classification: Classification,
+        item_id: int | None = None,
+    ) -> RouteResult:
         """Route a file based on its classification.
 
         Primary route (first match with type=folder) moves the file.
@@ -138,8 +153,17 @@ class Router:
 
         # Separate folder routes (file-moving) from webhook routes (fire-and-forget)
         primary_result = None
+        first_result = None
         for route_name, route_config in matches:
-            result = self._execute_route(source_path, route_name, route_config, classification)
+            result = self._execute_route(
+                source_path,
+                route_name,
+                route_config,
+                classification,
+                item_id=item_id,
+            )
+            if first_result is None:
+                first_result = result
             if primary_result is None and route_config.type == "folder":
                 primary_result = result
             elif route_config.type == "webhook" and not result.success:
@@ -147,11 +171,9 @@ class Router:
 
         # If no folder route matched, use the first result (could be webhook-only)
         if primary_result is None:
-            primary_result = self._execute_route(
-                source_path, matches[0][0], matches[0][1], classification
-            )
+            primary_result = first_result
 
-        return primary_result
+        return primary_result or self._route_to_review(source_path, classification)
 
     def _execute_route(
         self,
@@ -159,12 +181,19 @@ class Router:
         route_name: str,
         route_config: RouteConfig,
         classification: Classification,
+        item_id: int | None = None,
     ) -> RouteResult:
         """Execute a specific route."""
         if route_config.type == "folder":
             return self._route_to_folder(source_path, route_name, route_config, classification)
         elif route_config.type == "webhook":
-            return self._route_to_webhook(source_path, route_name, route_config, classification)
+            return self._route_to_webhook(
+                source_path,
+                route_name,
+                route_config,
+                classification,
+                item_id=item_id,
+            )
         else:
             logger.warning("Unknown route type: %s", route_config.type)
             return RouteResult(
@@ -180,6 +209,7 @@ class Router:
         route_name: str,
         route_config: RouteConfig,
         classification: Classification,
+        item_id: int | None = None,
     ) -> RouteResult:
         """Route a file to a folder destination."""
         if not route_config.path:
@@ -224,6 +254,7 @@ class Router:
         route_name: str,
         route_config: RouteConfig,
         classification: Classification,
+        item_id: int | None = None,
     ) -> RouteResult:
         """Route item data to a webhook URL (does NOT move the file)."""
         if not route_config.url:
@@ -238,6 +269,7 @@ class Router:
             from arkiv_webhook import send_webhook
 
             item_data = {
+                "payload_version": 1,
                 "original_path": str(source_path),
                 "category": classification.category,
                 "confidence": classification.confidence,
@@ -255,13 +287,19 @@ class Router:
                     success=True,
                     message=f"Webhook delivered: {route_name}",
                 )
-            else:
-                return RouteResult(
-                    route_name=route_name,
-                    destination=route_config.url,
-                    success=False,
-                    message=f"Webhook delivery failed: {route_name}",
-                )
+            self._enqueue_failed_webhook(
+                item_id=item_id,
+                route_name=route_name,
+                url=route_config.url,
+                payload=item_data,
+                error=f"Webhook delivery failed: {route_name}",
+            )
+            return RouteResult(
+                route_name=route_name,
+                destination=route_config.url,
+                success=False,
+                message=f"Webhook delivery failed: {route_name}",
+            )
 
         except ImportError:
             logger.warning(
@@ -269,12 +307,49 @@ class Router:
                 "Install with: pip install arkiv-webhook",
                 route_name,
             )
+            item_data = {
+                "payload_version": 1,
+                "original_path": str(source_path),
+                "category": classification.category,
+                "confidence": classification.confidence,
+                "summary": classification.summary,
+                "tags": classification.tags,
+                "language": classification.language,
+                "route_name": route_name,
+            }
+            self._enqueue_failed_webhook(
+                item_id=item_id,
+                route_name=route_name,
+                url=route_config.url,
+                payload=item_data,
+                error="arkiv-webhook plugin not installed",
+            )
             return RouteResult(
                 route_name=route_name,
                 destination=route_config.url,
                 success=False,
                 message="arkiv-webhook plugin not installed",
             )
+
+    def _enqueue_failed_webhook(
+        self,
+        *,
+        item_id: int | None,
+        route_name: str,
+        url: str,
+        payload: dict[str, object],
+        error: str,
+    ) -> None:
+        """Remember a failed webhook delivery when a Store is available."""
+        if self.store is None:
+            return
+        self.store.enqueue_webhook(
+            item_id=item_id,
+            route_name=route_name,
+            url=url,
+            payload=payload,
+            last_error=error,
+        )
 
     def _route_to_review(self, source_path: Path, classification: Classification) -> RouteResult:
         """Route to review directory when no route matches."""

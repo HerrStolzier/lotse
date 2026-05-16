@@ -1,7 +1,7 @@
 # AI Memory Search MVP Decision
 
-**Status**: Sprint-1 Startentscheidung  
-**Date**: 2026-04-09
+**Status**: Aktualisierte lokale Modellentscheidung  
+**Date**: 2026-05-13
 
 ## Worum es in diesem Dokument geht
 Dieses Dokument legt fest, wie Sprint 2 praktisch starten soll.
@@ -23,28 +23,26 @@ Die erste Version soll **kein freier Chat ueber alle Dokumente** sein.
 ## Modellentscheidung fuer den Start
 
 ### Primaerer Zielkandidat
-- **Qwen/Qwen3-4B-Instruct-2507**
-
-### Fallback-Kandidat
 - **Qwen/Qwen2.5-7B-Instruct**
+
+### Vergleichskandidaten fuer spaetere Laeufe
+- **mistralai/Mistral-7B-Instruct-v0.3**
+- **microsoft/Phi-4-mini-instruct**
+- **meta-llama/Llama-3.1-8B-Instruct**, falls Lizenz/Gating akzeptabel sind
 
 ## Warum genau diese Wahl
 
-### Warum Qwen3-4B als primaerer Zielkandidat
-- gutes Signal fuer Instruction Following und strukturierte Ausgabe
-- deutlich kleiner als klassische 7B/8B-Modelle
-- damit fuer lokale Suche potenziell schneller und alltagstauglicher
-- moderne Instruct-Variante mit gutem Preis-Leistungs-Gefuehl fuer den Use Case
-
-### Warum Qwen2.5-7B als Fallback
+### Warum Qwen2.5-7B als primaerer Zielkandidat
 - liegt dem aktuellen Kurier-Setup schon nah
 - ist verbreitet und lokal leicht nachvollziehbar
-- taugt als stabile Baseline, falls Qwen3-4B in echten Kurier-Faellen doch schwankt
+- ist ein klassisches Instruct-Modell ohne lange sichtbare Reasoning-Ausgabe
+- liefert im Kurier-Benchmark stabile strukturierte Antworten
+- passt auf dem lokalen System zu 24 GB RAM
 
 ### Wichtiger Realitaetshinweis
-Diese Entscheidung ist eine **Startentscheidung**, keine endgueltige Siegerkrone.
+Diese Entscheidung ist eine **Praxisentscheidung fuer den aktuellen Demo-RC**, keine endgueltige Siegerkrone.
 
-Bevor ein Modell fuer Nutzer fest eingeplant wird, muss es noch gegen das Kurier-Mini-Benchmark laufen.
+Der Kurier-Benchmark vom 2026-05-13 empfiehlt `ollama:qwen2.5:7b` mit ca. 83% Gesamtqualitaet und ca. 4,1 Sekunden pro Fall. Qwen3/Qwen3.5-Modelle wurden vorher als unpassend einsortiert, weil sie bei einfachen JSON-Aufgaben in lange Denk-Ausgaben und Timeouts abdriften koennen.
 
 ## Architekturentscheidung fuer den MVP
 
@@ -128,3 +126,5 @@ Sprint 2 soll nicht nur an der Suchlogik bauen, sondern zuerst an den Suchsignal
 Wenn wir Sprint 2 morgen anfangen, dann lautet die Arbeitsanweisung sinngemaess:
 
 > Erweitere zuerst das Datenmodell um sprechende Suchsignale und baue danach einen lokalen Query-Assist auf Basis von Qwen3-4B, mit Qwen2.5-7B als Fallback. Halte die Suche retrieval-first, reduziere die Datenausgabe und behandle alle KI-Ausgaben defensiv.
+>
+> Aktualisierung 2026-05-13: Nutze fuer den lokalen Demo-RC zuerst Qwen2.5-7B-Instruct. Es ist auf diesem System installiert, vom Kurier-Benchmark empfohlen und vermeidet die fuer Kurier unpraktischen langen Reasoning-Ausgaben.

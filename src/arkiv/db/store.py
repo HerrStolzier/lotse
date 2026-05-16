@@ -79,6 +79,26 @@ CREATE TRIGGER IF NOT EXISTS items_au AFTER UPDATE ON items BEGIN
 END;
 """
 
+WEBHOOK_OUTBOX_SCHEMA = """\
+CREATE TABLE IF NOT EXISTS webhook_outbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER REFERENCES items(id) ON DELETE SET NULL,
+    route_name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending, delivered, failed
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    next_attempt_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    delivered_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS webhook_outbox_status_next_idx
+ON webhook_outbox(status, next_attempt_at);
+"""
+
 # sqlite-vec virtual table (created separately since it needs the extension loaded)
 VEC_SCHEMA = """\
 CREATE VIRTUAL TABLE IF NOT EXISTS items_vec USING vec0(
@@ -156,6 +176,7 @@ class Store:
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._conn.executescript(TABLE_SCHEMA)
         self._conn.executescript(BETA_EVENTS_SCHEMA)
+        self._conn.executescript(WEBHOOK_OUTBOX_SCHEMA)
         self._migrate_status_column_if_needed()
         self._migrate_title_columns_if_needed()
         self._migrate_fts_if_needed()
@@ -467,6 +488,110 @@ class Store:
         )
         self._conn.commit()
 
+    def enqueue_webhook(
+        self,
+        *,
+        item_id: int | None,
+        route_name: str,
+        url: str,
+        payload: dict[str, Any],
+        last_error: str,
+        next_attempt_at: str | None = None,
+    ) -> int:
+        """Persist a failed webhook delivery for a later retry."""
+        now = datetime.now(UTC).isoformat()
+        cursor = self._conn.execute(
+            """INSERT INTO webhook_outbox (
+                item_id, route_name, url, payload_json, status, attempt_count,
+                last_error, next_attempt_at, created_at, updated_at
+               ) VALUES (?, ?, ?, ?, 'pending', 1, ?, ?, ?, ?)""",
+            (
+                item_id,
+                route_name,
+                url,
+                json.dumps(payload, ensure_ascii=False),
+                last_error,
+                next_attempt_at,
+                now,
+                now,
+            ),
+        )
+        self._conn.commit()
+        return cursor.lastrowid or 0
+
+    def list_webhook_outbox(
+        self,
+        *,
+        statuses: tuple[str, ...] = ("pending", "failed"),
+        due_only: bool = False,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """List persisted webhook deliveries."""
+        if not statuses:
+            return []
+
+        placeholders = ",".join("?" for _ in statuses)
+        params: list[Any] = list(statuses)
+        where = [f"status IN ({placeholders})"]
+        if due_only:
+            now = datetime.now(UTC).isoformat()
+            where.append("(next_attempt_at IS NULL OR next_attempt_at <= ?)")
+            params.append(now)
+        params.append(limit)
+
+        cursor = self._conn.execute(
+            f"""SELECT * FROM webhook_outbox
+                WHERE {" AND ".join(where)}
+                ORDER BY created_at ASC
+                LIMIT ?""",
+            params,
+        )
+        rows = []
+        for row in cursor.fetchall():
+            item = dict(row)
+            item["payload"] = json.loads(item.pop("payload_json"))
+            rows.append(item)
+        return rows
+
+    def mark_webhook_delivered(self, delivery_id: int) -> None:
+        """Mark a webhook outbox row as delivered."""
+        now = datetime.now(UTC).isoformat()
+        self._conn.execute(
+            """UPDATE webhook_outbox
+               SET status = 'delivered',
+                   attempt_count = attempt_count + 1,
+                   last_error = NULL,
+                   next_attempt_at = NULL,
+                   updated_at = ?,
+                   delivered_at = ?
+               WHERE id = ?""",
+            (now, now, delivery_id),
+        )
+        self._conn.commit()
+
+    def mark_webhook_failed(
+        self,
+        delivery_id: int,
+        *,
+        error: str,
+        next_attempt_at: str | None,
+        terminal: bool = False,
+    ) -> None:
+        """Update a webhook outbox row after a failed retry attempt."""
+        now = datetime.now(UTC).isoformat()
+        status = "failed" if terminal else "pending"
+        self._conn.execute(
+            """UPDATE webhook_outbox
+               SET status = ?,
+                   attempt_count = attempt_count + 1,
+                   last_error = ?,
+                   next_attempt_at = ?,
+                   updated_at = ?
+               WHERE id = ?""",
+            (status, error, next_attempt_at, now, delivery_id),
+        )
+        self._conn.commit()
+
     def undo_item(self, item_id: int) -> dict[str, Any] | None:
         """Get item info for undo (original_path, destination). Returns None if not found."""
         row = self._conn.execute(
@@ -521,11 +646,17 @@ class Store:
             "SELECT route_name, COUNT(*) as count FROM items "
             "GROUP BY route_name ORDER BY count DESC"
         ).fetchall()
+        webhook_rows = self._conn.execute(
+            "SELECT status, COUNT(*) as count FROM webhook_outbox GROUP BY status"
+        ).fetchall()
+        webhooks = {row["status"]: row["count"] for row in webhook_rows}
 
         result = {
             "total_items": total,
             "categories": {row["category"]: row["count"] for row in categories},
             "routes": {row["route_name"]: row["count"] for row in routes},
+            "webhooks": webhooks,
+            "webhooks_open": webhooks.get("pending", 0) + webhooks.get("failed", 0),
             "vec_enabled": self._vec_enabled,
         }
 

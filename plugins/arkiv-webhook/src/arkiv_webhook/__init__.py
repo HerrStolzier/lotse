@@ -77,6 +77,7 @@ def _format_generic(item_data: dict, timestamp: str) -> dict:
     """Generic JSON payload."""
     return {
         "event": "item_routed",
+        "payload_version": item_data.get("payload_version", 1),
         "item": item_data,
         "timestamp": timestamp,
     }

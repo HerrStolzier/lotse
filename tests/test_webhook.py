@@ -14,6 +14,7 @@ import pytest
 from arkiv.core.classifier import Classification
 from arkiv.core.config import RouteConfig
 from arkiv.core.router import Router
+from arkiv.db.store import Store
 
 arkiv_webhook = pytest.importorskip("arkiv_webhook", reason="arkiv_webhook plugin not installed")
 
@@ -120,12 +121,65 @@ def test_webhook_only_route(tmp_path: Path) -> None:
         language="en",
     )
 
-    with patch("arkiv_webhook.send_webhook", return_value=True):
+    with patch("arkiv_webhook.send_webhook", return_value=True) as mock:
         result = router.execute(source, classification)
 
     # Webhook-only = file stays, webhook fires, result is from webhook
     assert result.success
     assert result.route_name == "notify"
+    mock.assert_called_once()
+
+
+def test_failed_webhook_only_route_is_persisted_to_outbox(tmp_path: Path) -> None:
+    """A failed webhook-only delivery should leave a retryable store record."""
+    routes = {
+        "notify": RouteConfig(
+            type="webhook",
+            url="https://example.com/hook",
+            categories=["artikel"],
+            confidence_threshold=0.5,
+        ),
+    }
+    store = Store(tmp_path / "kurier.db")
+    item_id = store.record_item(
+        original_path=str(tmp_path / "article.md"),
+        destination="",
+        category="artikel",
+        confidence=0.8,
+        summary="Article",
+        tags=["python"],
+        language="en",
+        route_name="",
+        status="pending",
+    )
+    router = Router(routes, tmp_path / "review", store=store)
+
+    source = tmp_path / "article.md"
+    source.write_text("test")
+
+    classification = Classification(
+        category="artikel",
+        confidence=0.8,
+        summary="Article",
+        tags=["python"],
+        language="en",
+    )
+
+    with patch("arkiv_webhook.send_webhook", return_value=False):
+        result = router.execute(source, classification, item_id=item_id)
+
+    [pending] = store.list_webhook_outbox(statuses=("pending",))
+    assert not result.success
+    assert result.route_name == "notify"
+    assert source.exists()
+    assert pending["item_id"] == item_id
+    assert pending["route_name"] == "notify"
+    assert pending["url"] == "https://example.com/hook"
+    assert pending["payload"]["original_path"] == str(source)
+    assert pending["payload"]["category"] == "artikel"
+    assert pending["payload"]["tags"] == ["python"]
+    assert pending["attempt_count"] == 1
+    assert pending["last_error"] == "Webhook delivery failed: notify"
 
 
 def test_webhook_failure_does_not_block_folder_route(

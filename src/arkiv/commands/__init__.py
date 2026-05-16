@@ -20,6 +20,7 @@ from arkiv.commands import (
     status,
     tui,
     undo,
+    webhooks,
 )
 
 
@@ -39,4 +40,5 @@ def register_commands(app: typer.Typer) -> None:
     plugins.register(app)
     undo.register(app)
     export.register(app)
+    webhooks.register(app)
     tui.register(app)

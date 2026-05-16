@@ -43,6 +43,7 @@ def test_generic_format() -> None:
 
     payload = _format_payload(url, item)
     assert payload["event"] == "item_routed"
+    assert payload["payload_version"] == 1
     assert payload["item"]["category"] == "notiz"
     assert "timestamp" in payload
 
