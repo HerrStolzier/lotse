@@ -103,6 +103,9 @@ async def recent_partial() -> HTMLResponse:
 
     ctx = _get_context()
     items = get_recent_items(ctx, limit=30)
+    for item in items:
+        original_path = item.get("original_path") or ""
+        item["source_name"] = Path(str(original_path).replace("text://", "")).name or original_path
     return _render("partials/recent.html", items=items)
 
 

@@ -38,6 +38,7 @@ def test_dashboard_loads(client: TestClient) -> None:
     assert "htmx" in resp.text
     assert "styles.css" in resp.text
     assert "Problem melden" in resp.text
+    assert 'hx-trigger="load, every 5s"' in resp.text
 
 
 def test_dashboard_static_assets_are_served(client: TestClient) -> None:
@@ -238,6 +239,11 @@ def test_recent_shows_items_after_upload(client: TestClient) -> None:
 
     resp = client.get("/dashboard/partials/recent")
     assert resp.status_code == 200
+    assert "Zuletzt erledigt" in resp.text
+    assert "Erledigt" in resp.text
+    assert "Quelle:" in resp.text
+    assert "Ablage:" in resp.text
+    assert "Wenn das falsch ist" in resp.text
     assert "A quick note" in resp.text
     assert "notiz" in resp.text
     assert "Kurze Notiz" in resp.text

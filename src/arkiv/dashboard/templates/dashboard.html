@@ -137,7 +137,7 @@
         <div id="tab-recent">
             <div id="recent-items"
                  hx-get="/dashboard/partials/recent"
-                 hx-trigger="load"
+                 hx-trigger="load, every 5s"
                  hx-swap="innerHTML">
                 <div class="text-gray-500 text-sm">Lade Dokumente...</div>
             </div>

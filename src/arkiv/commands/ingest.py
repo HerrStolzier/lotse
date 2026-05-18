@@ -81,7 +81,11 @@ def watch(
         if cfg.notifications and result and result.success:
             from arkiv.notifications import notify
 
-            notify("Kurier", f"{p.name} → {result.route_name}")
+            latest = engine.store.get_recent(limit=1)
+            item = latest[0] if latest else {}
+            category = item.get("category", result.route_name)
+            destination = item.get("destination_name") or result.route_name
+            notify("Kurier", f"{p.name} erledigt: {category} → {destination}")
 
     watcher = Watcher(
         cfg.inbox_dir,

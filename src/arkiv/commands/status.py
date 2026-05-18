@@ -86,6 +86,18 @@ def status(
             cat_table.add_row(cat, str(count))
         console.print(cat_table)
 
+    latest = store.get_recent(limit=1)
+    if latest:
+        item = latest[0]
+        title = item.get("display_title") or item.get("destination_name") or "Unbenannt"
+        category = item.get("category", "unbekannt")
+        confidence = float(item.get("confidence") or 0) * 100
+        destination = item.get("destination_name") or item.get("route_name") or "keine Ablage"
+        console.print(
+            f"\n[dim]Zuletzt erledigt:[/dim] {title} "
+            f"({category}, {confidence:.0f}% sicher) → {destination}"
+        )
+
 
 def register(app: typer.Typer) -> None:
     """Register status commands."""

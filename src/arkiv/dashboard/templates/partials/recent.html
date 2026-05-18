@@ -1,37 +1,53 @@
 {% if items %}
-<div class="overflow-x-auto fade-in">
-    <table class="w-full text-sm">
-        <thead>
-            <tr class="text-left text-gray-500 border-b border-arkiv-800">
-                <th class="pb-2 font-medium">Titel</th>
-                <th class="pb-2 font-medium">Art</th>
-                <th class="pb-2 font-medium">Kurzinfo</th>
-                <th class="pb-2 font-medium">Ablage</th>
-                <th class="pb-2 font-medium text-right">Datum</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in items %}
-            <tr class="border-b border-arkiv-800/50 hover:bg-arkiv-800/30 transition-colors">
-                <td class="py-2.5 text-gray-200 max-w-xs truncate">
-                    {{ item.display_title or item.destination_name or 'Unbenanntes Dokument' }}
-                </td>
-                <td class="py-2.5">
-                    <span class="inline-flex items-center bg-arkiv-800 text-arkiv-500 text-xs font-medium px-2 py-0.5 rounded">
+<div class="space-y-3 fade-in">
+    <div class="rounded-lg border border-arkiv-800 bg-arkiv-950/70 px-4 py-3 text-sm text-gray-300">
+        <span class="font-medium text-white">Zuletzt erledigt</span>
+        <span class="text-gray-500">- aktualisiert automatisch, wenn der Eingangsordner verarbeitet wird.</span>
+    </div>
+    {% for item in items %}
+    <article class="rounded-xl border border-arkiv-800 bg-arkiv-950 p-4">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div class="min-w-0 flex-1">
+                <div class="mb-2 flex flex-wrap items-center gap-2">
+                    <span class="rounded bg-green-900/40 px-2 py-0.5 text-xs font-medium text-green-300">
+                        Erledigt
+                    </span>
+                    <span class="rounded bg-arkiv-800 px-2 py-0.5 text-xs font-medium text-arkiv-500">
                         {{ item.category }}
                     </span>
-                </td>
-                <td class="py-2.5 text-gray-300 max-w-md truncate">{{ item.summary or '—' }}</td>
-                <td class="py-2.5 text-gray-500">{{ item.route_name }}</td>
-                <td class="py-2.5 text-gray-500 text-right">{{ item.created_at[:10] }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                    {% if item.confidence is defined %}
+                    <span class="text-xs text-gray-500">{{ "%.0f" | format(item.confidence * 100) }}% sicher</span>
+                    {% endif %}
+                </div>
+                <h3 class="truncate text-sm font-medium text-white">
+                    {{ item.display_title or item.destination_name or 'Unbenanntes Dokument' }}
+                </h3>
+                <p class="mt-1 text-sm text-gray-300 truncate">{{ item.summary or 'Keine Kurzinfo gespeichert' }}</p>
+                <dl class="mt-3 grid gap-1 text-xs text-gray-500 sm:grid-cols-2">
+                    <div>
+                        <dt class="inline text-gray-400">Quelle:</dt>
+                        <dd class="inline">{{ item.source_name or 'unbekannt' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="inline text-gray-400">Ablage:</dt>
+                        <dd class="inline">{{ item.destination_name or item.route_name }}</dd>
+                    </div>
+                </dl>
+                <p class="mt-3 text-xs text-gray-500">
+                    Wenn das falsch ist: in der Prüfliste bestätigen oder Kategorie korrigieren.
+                </p>
+            </div>
+            <div class="text-xs text-gray-500 lg:text-right">
+                <div>{{ item.created_at[:10] }}</div>
+                <div class="mt-1">{{ item.route_name }}</div>
+            </div>
+        </div>
+    </article>
+    {% endfor %}
 </div>
 {% else %}
 <div class="text-gray-500 text-sm py-8 text-center fade-in">
-    Noch keine Dokumente verarbeitet. Ziehe oben eine Datei hinein oder nutze
+    Noch keine Dokumente verarbeitet. Lege eine Datei in den Eingangsordner oder nutze
     <code class="text-arkiv-500">kurier add</code>.
 </div>
 {% endif %}

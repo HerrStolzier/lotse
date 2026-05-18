@@ -106,6 +106,8 @@ def test_status_explains_next_steps_and_integrations(tmp_path: Path) -> None:
     assert "Integrationen:" in result.stdout
     assert "keine offenen Webhooks" in result.stdout
     assert "Nächster Schritt:" in result.stdout
+    assert "Zuletzt erledigt:" in result.stdout
+    assert "note.txt" in result.stdout
 
 
 def test_doctor_reports_missing_config_file(tmp_path: Path) -> None:
