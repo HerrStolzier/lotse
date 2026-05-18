@@ -1,11 +1,18 @@
 {% if success %}
 <div class="bg-green-900/30 border border-green-800 text-green-300 text-sm rounded-lg p-3 fade-in">
-    <span class="font-medium">Erkannt als:</span> {{ category }}
-    <span class="text-green-500">({{ "%.0f" | format(confidence * 100) }}%)</span>
-    <p class="text-green-400/70 text-xs mt-1">{{ message }}</p>
+    <p class="font-medium text-green-200">Erledigt: {{ source_name }} wurde verarbeitet.</p>
+    <div class="mt-2 space-y-1 text-xs text-green-100/80">
+        <p><span class="text-green-400">Erkannt als:</span> {{ category }} ({{ "%.0f" | format(confidence * 100) }}% sicher)</p>
+        <p><span class="text-green-400">Name:</span> {{ display_title }}</p>
+        {% if destination_name %}
+        <p><span class="text-green-400">Ablage:</span> {{ destination_name }}</p>
+        {% endif %}
+        <p><span class="text-green-400">Wenn das falsch ist:</span> Öffne die Prüfliste und korrigiere die Kategorie.</p>
+    </div>
 </div>
 {% else %}
 <div class="bg-red-900/30 border border-red-800 text-red-300 text-sm rounded-lg p-3 fade-in">
     <span class="font-medium">Konnte nicht verarbeitet werden:</span> {{ message }}
+    <p class="text-red-200/70 text-xs mt-1">Prüfe Dateityp und Inhalt. Wenn es wieder passiert, nutze “Problem melden”.</p>
 </div>
 {% endif %}

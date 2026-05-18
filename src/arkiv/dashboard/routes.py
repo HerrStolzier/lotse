@@ -157,10 +157,11 @@ async def upload_partial(
 
     # Fetch the most recently inserted item (by created_at) to get category/confidence.
     recent = get_recent_items(ctx, limit=1)
-    category = recent[0]["category"] if recent else "unknown"
-    confidence = recent[0]["confidence"] if recent else 0
-    item_id = recent[0]["id"] if recent else None
-    route_name = recent[0]["route_name"] if recent else ""
+    latest = recent[0] if recent else {}
+    category = latest.get("category", "unknown")
+    confidence = latest.get("confidence", 0)
+    item_id = latest.get("id")
+    route_name = latest.get("route_name", "")
 
     if confidence < 0.6 or route_name == "__review__":
         record_beta_event(
@@ -178,6 +179,11 @@ async def upload_partial(
         message=result.message,
         category=category,
         confidence=confidence,
+        source_name=file.filename or tmp_path.name,
+        destination=result.destination,
+        destination_name=latest.get("destination_name") or Path(result.destination).name,
+        display_title=latest.get("display_title") or latest.get("destination_name") or category,
+        route_name=route_name,
     )
 
 
@@ -212,8 +218,10 @@ async def review_correct(
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    # Return empty string — HTMX will swap the item out of the queue
-    return HTMLResponse("")
+    return _render(
+        "partials/review_done.html",
+        message=f"Erledigt: Kategorie wurde auf '{category.strip()}' gesetzt.",
+    )
 
 
 @router.post("/partials/review/{item_id}/confirm", response_class=HTMLResponse)
@@ -233,8 +241,7 @@ async def review_confirm(item_id: int) -> HTMLResponse:
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    # Return empty string — HTMX will swap the item out of the queue
-    return HTMLResponse("")
+    return _render("partials/review_done.html", message="Erledigt: Einordnung bestätigt.")
 
 
 @router.post("/partials/beta/problem", response_class=HTMLResponse)

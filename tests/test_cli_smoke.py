@@ -82,6 +82,32 @@ def test_status_reports_empty_database_without_crashing(tmp_path: Path) -> None:
     assert db_path.name in result.stdout
 
 
+def test_status_explains_next_steps_and_integrations(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.toml"
+    db_path = tmp_path / "state" / "kurier.db"
+    inbox_dir = tmp_path / "inbox"
+    review_dir = tmp_path / "review"
+    _write_config(config_path, db_path, inbox_dir, review_dir)
+    store = Store(db_path)
+    store.record_item(
+        original_path="/tmp/note.txt",
+        destination="/archive/note.txt",
+        category="notiz",
+        confidence=0.9,
+        summary="Notiz",
+        tags=[],
+        language="de",
+        route_name="archiv",
+    )
+
+    result = runner.invoke(app, ["status", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Integrationen:" in result.stdout
+    assert "keine offenen Webhooks" in result.stdout
+    assert "Nächster Schritt:" in result.stdout
+
+
 def test_doctor_reports_missing_config_file(tmp_path: Path) -> None:
     missing_config = tmp_path / "missing.toml"
 
@@ -126,6 +152,7 @@ def test_beta_report_empty_state(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "Kurier Beta-Bericht" in result.stdout
     assert "Noch keine Stolperer notiert." in result.stdout
+    assert "5-Tage-Alltagstest" in result.stdout
 
 
 def test_beta_report_prioritizes_next_product_actions(tmp_path: Path) -> None:

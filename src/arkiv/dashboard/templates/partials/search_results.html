@@ -1,7 +1,7 @@
 {% if results %}
 <div class="space-y-2 fade-in">
     <div class="text-sm text-gray-500 mb-2">
-        {{ results | length }} Treffer
+        {{ results | length }} Treffer. Kurier zeigt nur kurze Hinweise, keine privaten Rohinhalte.
     </div>
     {% if memory and assist and (assist.rewrites or assist.notes) %}
     <div class="bg-arkiv-900/80 rounded-lg border border-arkiv-800 px-4 py-3 text-sm text-gray-300">
@@ -37,7 +37,11 @@
                 {% endif %}
                 {% if item.match_reason %}
                 <p class="text-xs text-arkiv-500 mt-2 truncate">
-                    {{ item.match_reason }}
+                    Warum dieser Treffer passt: {{ item.match_reason }}
+                </p>
+                {% else %}
+                <p class="text-xs text-gray-500 mt-2">
+                    Treffer über gespeicherte Suchsignale wie Titel, Kurzinfo oder Kategorie.
                 </p>
                 {% endif %}
             </div>
@@ -51,6 +55,12 @@
 </div>
 {% elif query %}
 <div class="text-gray-500 text-sm py-4 text-center fade-in">
-    Keine passenden Dokumente für "{{ query }}"
+    <p class="text-gray-300">Keine passenden Dokumente für "{{ query }}" gefunden.</p>
+    <p class="mt-2">
+        Versuche einen anderen Begriff, eine Dokumentart wie “Rechnung” oder aktiviere die KI-Hilfe für ungenaue Suche.
+    </p>
+    <p class="mt-1 text-xs text-gray-600">
+        Kurier hat diesen Suchfehler lokal notiert, damit wir die Suche im Alltag verbessern können.
+    </p>
 </div>
 {% endif %}

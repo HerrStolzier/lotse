@@ -23,6 +23,9 @@
                 {% if item.summary %}
                 <p class="text-sm text-gray-300 truncate">{{ item.summary }}</p>
                 {% endif %}
+                <p class="text-xs text-gray-500 mt-1">
+                    Kurier ist hier unsicher. Bestätige die Einordnung oder korrigiere sie; danach ist dieser Punkt erledigt.
+                </p>
                 {% if item.tags %}
                 <div class="flex flex-wrap gap-1 mt-1">
                     {% for tag in item.tags | from_json %}

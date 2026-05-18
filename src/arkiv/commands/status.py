@@ -64,6 +64,20 @@ def status(
             "(sqlite-vec fehlt)\n"
         )
 
+    open_webhooks = int(s.get("webhooks_open", 0))
+    if open_webhooks:
+        console.print(
+            f"[dim]Integrationen:[/dim] [yellow]{open_webhooks} Zustellung offen[/yellow] "
+            "(erneut versuchen mit: kurier webhooks retry)\n"
+        )
+    else:
+        console.print("[dim]Integrationen:[/dim] [green]keine offenen Webhooks[/green]\n")
+
+    console.print(
+        "[dim]Nächster Schritt:[/dim] Dokumente in den Eingang legen, "
+        "im Dashboard prüfen oder mit `kurier search \"...\" --memory` suchen.\n"
+    )
+
     if s["categories"]:
         cat_table = Table(title="Dokumentarten")
         cat_table.add_column("Art", style="cyan")

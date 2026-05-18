@@ -23,6 +23,7 @@ def add(
         logging.basicConfig(level=logging.DEBUG)
 
     ctx = get_context(config)
+    source_label = "Texteingabe" if str(path) == "-" else path.name
 
     if str(path) == "-":
         import sys
@@ -36,9 +37,23 @@ def add(
         raise typer.Exit(1)
 
     if result.success:
-        console.print(f"[green]✓[/green] {result.message}")
+        latest = ctx.engine.store.get_recent(limit=1)
+        item = latest[0] if latest else {}
+        console.print("[green]✓ Erledigt.[/green] Kurier hat das Dokument verarbeitet.")
+        console.print(f"[dim]Quelle:[/dim] {source_label}")
+        console.print(f"[dim]Erkannt als:[/dim] {item.get('category', result.route_name)}")
+        if "confidence" in item:
+            console.print(f"[dim]Sicherheit:[/dim] {float(item['confidence']) * 100:.0f}%")
+        title = item.get("display_title") or item.get("destination_name")
+        if title:
+            console.print(f"[dim]Name:[/dim] {title}")
+        destination = result.destination or item.get("destination")
+        if destination:
+            console.print(f"[dim]Ablage:[/dim] {destination}")
+        console.print("[dim]Falls das falsch ist: im Dashboard in der Prüfliste korrigieren.[/dim]")
     else:
-        console.print(f"[red]✗[/red] {result.message}")
+        console.print(f"[red]✗ Konnte nicht verarbeitet werden.[/red] {result.message}")
+        console.print("[dim]Prüfe Pfad, Dateityp und Inhalt. Danach erneut versuchen.[/dim]")
         raise typer.Exit(1)
 
 

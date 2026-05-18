@@ -179,11 +179,23 @@ def doctor(
             failed = sum(1 for it in all_items if it.get("status") == "failed")
             if pending or failed:
                 warn(
-                    "DB-Status",
-                    f"{pending} ausstehend, {failed} fehlgeschlagen (von {len(all_items)} gesamt)",
+                    "Ablage-Verarbeitung",
+                    f"{pending} noch in Arbeit, {failed} fehlgeschlagen. "
+                    "Öffne das Dashboard oder prüfe die betroffenen Dateien.",
                 )
             else:
                 ok("Ablage-Daten", f"{len(all_items)} Einträge, keine Fehler")
+
+            stats = store.stats()
+            open_webhooks = int(stats.get("webhooks_open", 0))
+            if open_webhooks:
+                warn(
+                    "Integrationen",
+                    f"{open_webhooks} Webhook-Zustellung offen. "
+                    "Nächster Schritt: kurier webhooks retry",
+                )
+            else:
+                ok("Integrationen", "Keine offenen Webhook-Zustellungen")
         except Exception as e:
             warn("Datenbank", str(e))
     elif cfg is not None:

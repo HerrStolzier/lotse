@@ -33,7 +33,11 @@ def report(
 
     if summary["total"] == 0:
         console.print("[green]Noch keine Stolperer notiert.[/green]")
-        console.print("[dim]Nutze Kurier ein wenig im Alltag oder melde etwas im Dashboard.[/dim]")
+        console.print(
+            "[dim]Starte den 5-Tage-Alltagstest: jeden Tag ein echtes Dokument "
+            "oder eine echte Suche nutzen.[/dim]"
+        )
+        console.print("[dim]Bei Frust im Dashboard kurz “Problem melden” nutzen.[/dim]")
         return
 
     console.print(f"[bold]Gesammelte Hinweise:[/bold] {summary['total']}\n")

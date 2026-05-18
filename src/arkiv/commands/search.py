@@ -37,7 +37,12 @@ def search(
     results, assist = search_items_workflow(ctx, query, limit=limit, mode=mode, memory=memory)
 
     if not results:
-        console.print("[dim]Keine passenden Dokumente gefunden.[/dim]")
+        console.print(f"[yellow]Keine passenden Dokumente für “{query}” gefunden.[/yellow]")
+        console.print(
+            "[dim]Versuche einen anderen Begriff, eine Dokumentart wie “Rechnung” "
+            "oder nutze --memory für ungenaue Alltagssprache.[/dim]"
+        )
+        console.print("[dim]Dieser Suchfehler kann im Beta-Bericht sichtbar werden.[/dim]")
         return
 
     if ctx.engine.store.vec_enabled and mode in ("auto", "vec"):
@@ -48,6 +53,10 @@ def search(
     if memory and assist and assist.rewrites:
         rewrites = ", ".join(assist.rewrites)
         console.print(f"[dim]Kurier hat zusätzlich gesucht nach: {rewrites}[/dim]\n")
+    elif not memory:
+        console.print(
+            "[dim]Tipp: Mit --memory versteht Kurier ungenauere Suchfragen besser.[/dim]\n"
+        )
 
     table = Table(title=f"Gefundene Dokumente für: {query}")
     table.add_column("ID", style="dim")

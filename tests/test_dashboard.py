@@ -91,6 +91,7 @@ def test_search_partial_no_results(client: TestClient) -> None:
     resp = client.get("/dashboard/partials/search", params={"q": "nonexistent"})
     assert resp.status_code == 200
     assert "Keine passenden Dokumente" in resp.text
+    assert "anderen Begriff" in resp.text
 
 
 def test_search_partial_no_results_records_beta_event(client: TestClient, tmp_path: Path) -> None:
@@ -142,7 +143,9 @@ def test_upload_partial(client: TestClient) -> None:
 
     assert resp.status_code == 200
     assert "rechnung" in resp.text
+    assert "Erledigt" in resp.text
     assert "Erkannt als" in resp.text
+    assert "Wenn das falsch ist" in resp.text
 
 
 def test_search_after_upload(client: TestClient) -> None:
@@ -264,7 +267,8 @@ def test_review_correct_confirms_item_and_removes_it_from_queue(
         data={"category": "brief"},
     )
     assert resp.status_code == 200
-    assert resp.text == ""
+    assert "Erledigt" in resp.text
+    assert "brief" in resp.text
 
     after = client.get("/dashboard/partials/review")
     assert after.status_code == 200
