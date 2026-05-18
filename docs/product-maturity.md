@@ -18,7 +18,7 @@ This document is meant to answer one practical question:
 | Area | Status | Why this rating is fair right now |
 |------|--------|------------------------------------|
 | Install and first-run setup | **Stable** | Fresh developer installs and wheel installs were both re-tested from zero. `kurier init` is in place and `kurier doctor --fix` now smooths out missing-directory setup friction. |
-| Core CLI intake and routing | **Stable** | `kurier add`, `kurier watch`, `kurier undo`, and the standard folder-routing path have been exercised as real product flows, not just mocked unit tests. |
+| Core intake and routing | **Stable** | The primary flow is now explicit: put a file into the inbox, let the watcher process it, then verify the result in Dashboard "Letzte Dokumente" or `kurier status`. `kurier add`, `kurier watch`, `kurier undo`, and standard folder-routing remain exercised as real product flows. |
 | Dashboard review flow | **Stable** | The dashboard static asset bug was fixed and the manual review regression was fixed so confirmed corrections no longer reappear after refresh. |
 | API server | **Stable** | `kurier serve` and the main API surface are part of the verified product path and support the same local-first workflow as the CLI. |
 | Local archive search (keyword / classic search path) | **Stable** | SQLite-backed search is part of the long-standing core architecture and remains inside the tested product path. |
@@ -27,7 +27,7 @@ This document is meant to answer one practical question:
 | Webhook plugin | **Usable** | The plugin is a sensible extension path for Slack, Discord, n8n, Zapier, or custom endpoints, and the route has now been re-verified against a live local HTTP endpoint with a real POST payload. External third-party targets are still less proven than the core local flow, so this is not yet "stable". |
 | Browser extension | **Deferred** | Intentionally removed from the near-term roadmap to keep focus on the core local intake, review, and search flow. |
 | Email inlet | **Deferred** | Still a valid future extension, but not part of the current core product promise. |
-| Alltag trust loop | **Experimental** | Kurier now has a local beta feedback path and an anti-failure plan, but the 5-day real-use loop has not yet produced enough evidence to call the product calm and trustworthy in daily use. |
+| Alltag trust loop | **Experimental** | Kurier now surfaces inbox processing results in the Dashboard and `kurier status`, and has a local beta feedback path plus an anti-failure plan. The 5-day real-use loop has not yet produced enough evidence to call the product calm and trustworthy in daily use. |
 
 ## What this means for users
 
@@ -36,13 +36,14 @@ If you want the safest current path, think in this order:
 1. install Kurier
 2. run `kurier init`
 3. run `kurier doctor --fix`
-4. use `kurier add`, `kurier watch`, dashboard review, and local search as the main workflow
+4. start auto-sorting, put files into the inbox, and verify results in Dashboard "Letzte Dokumente"
+5. use dashboard review, local search, and `kurier status` as the confidence checks
 
 That path is where the product is strongest today.
 
 If you want to demo the project honestly, the best framing is:
 
-- core local capture, routing, review, and search: ready to show
+- core local capture through the inbox, routing, visible completion, review, and search: ready to show
 - AI memory search: ready to show with clear caveats about model quality
 - webhook integrations: promising extension, but not yet a fully proven flagship path
 

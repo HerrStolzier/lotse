@@ -2,7 +2,7 @@
 
 Stand: 2026-05-18
 
-Umsetzungsstand: Die erste praktische Haertungsrunde ist gestartet. Import, Suche, Review, Status/Doctor und Beta-Bericht wurden auf mehr Alltagssprache und klarere naechste Schritte ausgerichtet. Offen bleibt der echte 5-Tage-Alltagstest mit realen Dokumenten.
+Umsetzungsstand: Die erste praktische Haertungsrunde ist gestartet. Der primaere Flow "Datei in den Eingang legen" zeigt seine Erfolgskontrolle jetzt im Dashboard unter "Letzte Dokumente" und in `kurier status` als "Zuletzt erledigt". Suche, Review, Status/Doctor und Beta-Bericht wurden auf mehr Alltagssprache und klarere naechste Schritte ausgerichtet. Offen bleibt der echte 5-Tage-Alltagstest mit realen Dokumenten.
 
 Dieser Plan beschreibt, woran Kurier in den naechsten Monaten am wahrscheinlichsten scheitert und wie wir das frueh verhindern. Der Fokus liegt zuerst auf echter Alltagsnutzung durch den Hauptnutzer, nicht auf einer breiten Produktfreigabe.
 
@@ -15,10 +15,12 @@ Die zentrale Produktregel lautet:
 Der naechste Reife-Schritt ist ein kleiner, wiederholbarer Alltagstest:
 
 1. An fuenf Nutzungstagen mindestens ein echtes Dokument verarbeiten oder eine echte Suche ausfuehren.
-2. Keine perfekten manuellen Notizen fuehren.
-3. Bei Frust, Unsicherheit oder falschem Ergebnis im Dashboard kurz "Problem melden" nutzen.
-4. Am Ende `kurier beta report` ausfuehren.
-5. Die haeufigsten Stolperer werden zur naechsten Produkt-Haertung.
+2. Bei Dokumenten bevorzugt den echten Hauptflow nutzen: Datei in den Eingangsordner legen.
+3. Im Dashboard unter "Letzte Dokumente" pruefen, ob Quelle, Art, Sicherheit, Name und Ablage verstaendlich sind.
+4. Keine perfekten manuellen Notizen fuehren.
+5. Bei Frust, Unsicherheit oder falschem Ergebnis im Dashboard kurz "Problem melden" nutzen.
+6. Am Ende `kurier beta report` ausfuehren.
+7. Die haeufigsten Stolperer werden zur naechsten Produkt-Haertung.
 
 Das Ziel ist nicht, moeglichst viele Features zu testen. Das Ziel ist, zu sehen, wo Kurier Vertrauen verliert.
 
@@ -27,7 +29,7 @@ Das Ziel ist nicht, moeglichst viele Features zu testen. Das Ziel ist, zu sehen,
 | Frage | Signal | Warum es wichtig ist |
 | --- | --- | --- |
 | Kann ich dem Ergebnis vertrauen? | `category_corrected`, `low_confidence_review`, `classification_confirmed` | Viele Korrekturen oder unsichere Einordnungen zeigen, dass der Nutzer kontrollieren muss. |
-| Weiss ich nach dem Import, was passiert ist? | Import-Erfolg mit Zielort, Kategorie, Dateiname und Status | Ohne klare Erfolgskontrolle fuehlt sich Kurier wie eine Blackbox an. |
+| Weiss ich nach dem Eingang, was passiert ist? | Dashboard "Letzte Dokumente", `kurier status` mit "Zuletzt erledigt" | Ohne klare Erfolgskontrolle fuehlt sich Kurier wie eine Blackbox an. |
 | Finde ich Dokumente mit Alltagssprache wieder? | `search_no_results`, Treffer mit Begruendung | Suche ist nur brauchbar, wenn leere oder unklare Ergebnisse erklaert werden. |
 | Wo stolpert die Bedienung? | `manual_feedback` | Manuelles Feedback sammelt genau die Reibung, die automatische Signale nicht erkennen. |
 | Laeuft die lokale Technik verlaesslich? | `upload_failed`, offene Webhook-Retrys, Doctor-/Status-Hinweise | Lokale Dienste duerfen nicht wie Bastelarbeit wirken. |
@@ -50,11 +52,11 @@ Das Ziel ist nicht, moeglichst viele Features zu testen. Das Ziel ist, zu sehen,
 
 **Symptom im Alltag:** Nach dem Ablegen einer Datei bleibt offen, ob sie verarbeitet wurde, wo sie liegt und wie sie heisst.
 
-**Gegenmassnahme:** Jede Import-Rueckmeldung beantwortet vier Fragen: Was wurde erkannt? Wie sicher ist Kurier? Wo liegt die Datei? Was kann ich tun, wenn es falsch ist?
+**Gegenmassnahme:** Die Erfolgskontrolle sitzt im primaeren Nutzungsort: Dashboard "Letzte Dokumente". Dort beantwortet Kurier vier Fragen: Was wurde erkannt? Wie sicher ist Kurier? Wo liegt die Datei? Was kann ich tun, wenn es falsch ist?
 
-**Messsignal:** Erfolgreiche Imports enthalten Kategorie, Ziel, Dateiname und Status. Unsichere Imports erzeugen Review-Hinweise.
+**Messsignal:** Erfolgreich verarbeitete Eingangsdokumente erscheinen automatisch in "Letzte Dokumente" mit Quelle, Kategorie, Sicherheit, Name, Ablage und Korrekturhinweis. `kurier status` zeigt zusaetzlich "Zuletzt erledigt".
 
-**Akzeptanzkriterium:** Nach einem Import muss kein Terminalwissen noetig sein, um den Zustand der Datei zu verstehen.
+**Akzeptanzkriterium:** Nach dem Ablegen im Eingangsordner muss kein Terminalwissen noetig sein, um den Zustand der Datei zu verstehen.
 
 ## Risiko 3: Fehler sind nicht handhabbar genug
 
@@ -110,7 +112,7 @@ Das Ziel ist nicht, moeglichst viele Features zu testen. Das Ziel ist, zu sehen,
 
 **Symptom im Alltag:** Kurier funktioniert nur, wenn man sich an versteckte Dienste, Pfade, Ports oder Befehle erinnert.
 
-**Gegenmassnahme:** `kurier status`, `kurier doctor` und Dashboard muessen den Betriebszustand in normaler Sprache zeigen. Kritische Zusatzdienste werden benannt und mit naechsten Schritten versehen.
+**Gegenmassnahme:** `kurier status`, `kurier doctor` und Dashboard muessen den Betriebszustand in normaler Sprache zeigen. Kritische Zusatzdienste werden benannt und mit naechsten Schritten versehen. Das Dashboard aktualisiert "Letzte Dokumente" automatisch, damit der Eingangsordner-Flow nicht wie ein unsichtbarer Hintergrundprozess wirkt.
 
 **Messsignal:** Status zeigt Dokumentbestand, Suche, Texterkennung und offene Webhook-Auslieferungen. Doctor erklaert fehlende Bausteine ohne rohe Entwicklerbegriffe.
 

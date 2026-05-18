@@ -19,6 +19,7 @@ auf deinem Rechner; Cloud-Anbieter sind optional.
 ## Was Kurier kann
 
 - **Eingang überwachen** — neue Dateien im Eingangs-Ordner automatisch verarbeiten
+- **Erledigt sehen** — das Dashboard zeigt automatisch, was aus dem Eingang verarbeitet wurde
 - **Dokumente verstehen** — lokale KI per Ollama, optional OpenAI, Anthropic oder Hugging Face
 - **Passend ablegen** — nach Dokumentart in Ordner, Webhooks oder spätere Erweiterungen routen
 - **Wiederfinden** — Wortsuche plus intelligente Suche nach Bedeutung
@@ -50,6 +51,18 @@ erreichbar ist.
 
 Danach startet `kurier` die interaktive Oberfläche. Dort kannst du Dateien hinzufügen, den Eingang
 überwachen, suchen und den Gesundheitscheck ausführen.
+
+### Alltag: Datei in den Eingang legen
+
+Der normale Kurier-Flow ist:
+
+1. Datei in `~/Documents/Kurier/Eingang` legen.
+2. Kurier verarbeitet sie automatisch, wenn die Auto-Sortierung laeuft.
+3. Im Dashboard unter **Letzte Dokumente** sehen, was erledigt wurde.
+
+Dieser Bereich aktualisiert sich automatisch. Du siehst dort Quelle, erkannte Art, Sicherheit,
+sprechenden Namen und Ablage. Wenn etwas falsch wirkt, wechselst du in die Pruefliste und
+korrigierst die Kategorie. Auch `kurier status` zeigt das zuletzt erledigte Dokument.
 
 > **Alternative install methods:**
 > ```bash
@@ -233,13 +246,13 @@ src/arkiv/
 
 ## Aktueller Produktstatus
 
-Stand: **2026-05-12**.
+Stand: **2026-05-18**.
 
 | Status | Was das praktisch bedeutet |
 |--------|----------------------------|
 | **Stabil** | Installation, Einrichtung, Gesundheitscheck, Datei-Verarbeitung, Ordner-Ablage, Undo/Export und der lokale Grundfluss sind end-to-end geprüft. |
 | **Nutzbar** | KI-gestützte Suche, Benchmarksystem, n8n/Webhook-Anbindung und RAM-bewusste Modellwahl sind integriert. Die Qualität hängt weiter vom gewählten Modell ab. |
-| **Im Feinschliff** | Die Oberfläche wird gerade konsequent auf verständliche Alltagssprache umgestellt, damit Kurier weniger wie ein Entwicklerwerkzeug wirkt. |
+| **Im Feinschliff** | Der Eingangsordner-Flow zeigt Ergebnisse jetzt im Dashboard unter “Letzte Dokumente” und in `kurier status`; der echte 5-Tage-Alltagstest steht noch aus. |
 | **Später** | Browser-Erweiterung und voll ausgebaute E-Mail-Zuführung bleiben bewusst optional und gehören nicht zum aktuellen Kern. |
 
 If you want the longer rationale behind this snapshot, see [docs/product-maturity.md](docs/product-maturity.md).
