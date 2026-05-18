@@ -12,6 +12,8 @@ Durable learnings from recent `kurier` work. Keep this file for practical caveat
 - A manual review correction is not complete until the item is marked as confirmed. If the category changes without confirming confidence, the entry can fall back into the review queue on the next refresh.
 - User-facing validation and benchmark output must read like product language, not developer commands. Internals such as `uv run ruff check src/ tests/`, `mypy`, or raw pytest summaries are useful for contributors, but the finished Kurier UI/CLI should translate them into plain results such as "Code-Qualität geprüft", "Typprüfung bestanden", and "Alle automatischen Tests erfolgreich".
 - Plan a dedicated UX polish pass after the core flows are technically stable. The goal is to make Kurier feel understandable for "Otto Normalverbraucher": fewer raw implementation terms, clearer status messages, calmer error explanations, and guided next steps instead of command-shaped output.
+- Kurier must earn trust before it grows feature surface. For the next product hardening pass, every new feature or technical optimization should connect to a concrete user-confidence question: what happened to my document, where is it now, how do I fix it, or why did search behave this way?
+- Treat the local beta feedback flow as a product-learning system, not telemetry. Signals stay local and should answer practical next-step questions for the 5-day real-use test documented in `docs/anti-failure-plan.md`.
 
 ## Workflow Gotchas
 

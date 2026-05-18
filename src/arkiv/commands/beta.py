@@ -24,6 +24,7 @@ def report(
     data = get_beta_report(ctx, days=days, limit=limit)
     summary = data["summary"]
     events = data["events"]
+    recommendations = data["recommendations"]
 
     console.print(f"\n[bold]Kurier Beta-Bericht[/bold]  [dim]letzte {days} Tage[/dim]\n")
     console.print(
@@ -48,6 +49,33 @@ def report(
             str(row["count"]),
         )
     console.print(type_table)
+
+    if recommendations:
+        console.print()
+        console.print("[bold]Nächste sinnvolle Produktaufgaben:[/bold]")
+        for index, recommendation in enumerate(recommendations, 1):
+            console.print(
+                f"{index}. {recommendation['title']} "
+                f"({recommendation['count']} Signal(e))"
+            )
+        console.print()
+        action_table = Table(
+            title="Was sollte als Nächstes verbessert werden?",
+            show_header=True,
+            border_style="dim",
+        )
+        action_table.add_column("Priorität", justify="right", width=8)
+        action_table.add_column("Aufgabe", style="cyan")
+        action_table.add_column("Warum")
+        action_table.add_column("Signale", justify="right")
+        for index, recommendation in enumerate(recommendations, 1):
+            action_table.add_row(
+                str(index),
+                recommendation["title"],
+                recommendation["action"],
+                str(recommendation["count"]),
+            )
+        console.print(action_table)
 
     if events:
         console.print()

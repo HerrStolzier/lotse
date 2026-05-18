@@ -1,6 +1,6 @@
 # Product Maturity Snapshot
 
-Last updated: **2026-04-10**
+Last updated: **2026-05-18**
 
 This document is meant to answer one practical question:
 
@@ -27,6 +27,7 @@ This document is meant to answer one practical question:
 | Webhook plugin | **Usable** | The plugin is a sensible extension path for Slack, Discord, n8n, Zapier, or custom endpoints, and the route has now been re-verified against a live local HTTP endpoint with a real POST payload. External third-party targets are still less proven than the core local flow, so this is not yet "stable". |
 | Browser extension | **Deferred** | Intentionally removed from the near-term roadmap to keep focus on the core local intake, review, and search flow. |
 | Email inlet | **Deferred** | Still a valid future extension, but not part of the current core product promise. |
+| Alltag trust loop | **Experimental** | Kurier now has a local beta feedback path and an anti-failure plan, but the 5-day real-use loop has not yet produced enough evidence to call the product calm and trustworthy in daily use. |
 
 ## What this means for users
 
@@ -54,4 +55,12 @@ Why that matters:
 - it would turn the webhook path from "locally proven" into something much easier to claim confidently across real integrations
 - it keeps product work focused on trust and proof, not just adding more surface area
 
-After that, the next quality step would be deeper evaluation work for AI-assisted memory search, especially around multilingual and German-heavy usage.
+After that, the next quality step is the 5-day real-use loop from `docs/anti-failure-plan.md`.
+
+Why that matters:
+
+- it tests whether Kurier feels reliable outside prepared demo cases
+- it turns vague "UX polish" into concrete product signals from search misses, upload failures, review corrections, manual feedback, and integration retries
+- it keeps model, n8n, and webhook work subordinate to the core promise: document in, understandable result out, later findable again
+
+Deeper evaluation work for AI-assisted memory search still matters, especially around multilingual and German-heavy usage, but it should be prioritized through the trust loop rather than treated as a separate technical race.
