@@ -14,11 +14,13 @@ Durable learnings from recent `kurier` work. Keep this file for practical caveat
 - Plan a dedicated UX polish pass after the core flows are technically stable. The goal is to make Kurier feel understandable for "Otto Normalverbraucher": fewer raw implementation terms, clearer status messages, calmer error explanations, and guided next steps instead of command-shaped output.
 - Kurier must earn trust before it grows feature surface. For the next product hardening pass, every new feature or technical optimization should connect to a concrete user-confidence question: what happened to my document, where is it now, how do I fix it, or why did search behave this way?
 - Treat the local beta feedback flow as a product-learning system, not telemetry. Signals stay local and should answer practical next-step questions for the 5-day real-use test documented in `docs/anti-failure-plan.md`.
+- Keep router refactors small and behavior-preserving. Webhook payload construction now has one source of truth, and folder/review routing share destination collision handling so route behavior does not drift between normal filing and manual review.
 
 ## Workflow Gotchas
 
 - Mocked tests can miss real provider and plugin wiring bugs. After touching classification or routing flow, run at least one smoke test against a real provider.
 - `mypy` is strict enough to catch integration details that unit tests may gloss over, especially around subprocess text handling and typed dict shapes.
+- When changing webhook routing, cover both the installed-plugin path and the missing-plugin path. The missing-plugin branch should still enqueue the same versioned payload for retry instead of becoming a logging-only failure.
 
 ## Infra / Deploy Notes
 

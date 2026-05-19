@@ -1,5 +1,6 @@
 """Tests for the routing engine."""
 
+import builtins
 from pathlib import Path
 from unittest.mock import patch
 
@@ -7,7 +8,8 @@ import pytest
 
 from arkiv.core.classifier import Classification
 from arkiv.core.config import RouteConfig
-from arkiv.core.router import Router, _build_filename
+from arkiv.core.router import Router, _build_filename, _unique_destination_path
+from arkiv.db.store import Store
 
 
 @pytest.fixture
@@ -116,6 +118,96 @@ def test_handles_name_collision(router: Router, tmp_path: Path) -> None:
     result = router.execute(source, classification)
     assert result.success
     assert "_1.pdf" in result.destination
+
+
+def test_unique_destination_path_increments_existing_name(tmp_path: Path) -> None:
+    existing = tmp_path / "invoice.pdf"
+    existing.write_text("existing")
+    (tmp_path / "invoice_1.pdf").write_text("also existing")
+
+    result = _unique_destination_path(existing)
+
+    assert result == tmp_path / "invoice_2.pdf"
+
+
+def test_review_route_uses_same_collision_handling(router: Router, tmp_path: Path) -> None:
+    review_dir = tmp_path / "review"
+    review_dir.mkdir()
+    (review_dir / "mystery.pdf").write_text("existing")
+    (review_dir / "mystery_1.pdf").write_text("also existing")
+
+    source = tmp_path / "mystery.pdf"
+    source.write_text("new content")
+
+    classification = Classification(
+        category="unknown_type",
+        confidence=0.95,
+        summary="Unknown type",
+        tags=[],
+        language="en",
+    )
+
+    result = router.execute(source, classification)
+
+    assert result.success
+    assert result.route_name == "__review__"
+    assert result.destination.endswith("mystery_2.pdf")
+
+
+def test_missing_webhook_plugin_uses_versioned_payload_in_outbox(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    routes = {
+        "notify": RouteConfig(
+            type="webhook",
+            url="https://example.com/hook",
+            categories=["artikel"],
+            confidence_threshold=0.5,
+        ),
+    }
+    store = Store(tmp_path / "kurier.db")
+    router = Router(routes, tmp_path / "review", store=store)
+    source = tmp_path / "article.md"
+    source.write_text("test")
+    item_id = store.record_item(
+        original_path=str(source),
+        destination="",
+        category="artikel",
+        confidence=0.8,
+        summary="Article",
+        tags=["python"],
+        language="en",
+        route_name="",
+        status="pending",
+    )
+    classification = Classification(
+        category="artikel",
+        confidence=0.8,
+        summary="Article",
+        tags=["python"],
+        language="en",
+    )
+    original_import = builtins.__import__
+
+    def fail_webhook_import(name: str, *args: object, **kwargs: object) -> object:
+        if name == "arkiv_webhook":
+            raise ImportError("arkiv-webhook missing for test")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fail_webhook_import)
+
+    result = router.execute(source, classification, item_id=item_id)
+
+    [pending] = store.list_webhook_outbox(statuses=("pending",))
+    assert not result.success
+    assert result.message == "arkiv-webhook plugin not installed"
+    assert pending["item_id"] == item_id
+    assert pending["route_name"] == "notify"
+    assert pending["payload"]["payload_version"] == 1
+    assert pending["payload"]["original_path"] == str(source)
+    assert pending["payload"]["category"] == "artikel"
+    assert pending["payload"]["tags"] == ["python"]
+    assert pending["last_error"] == "arkiv-webhook plugin not installed"
 
 
 # --- Smart Rename Tests ---

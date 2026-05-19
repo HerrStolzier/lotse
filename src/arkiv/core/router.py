@@ -95,6 +95,20 @@ def _build_filename(classification: Classification, extension: str) -> str:
     return full
 
 
+def _unique_destination_path(dest_path: Path) -> Path:
+    """Return a non-existing path by appending _1, _2, ... when needed."""
+    if not dest_path.exists():
+        return dest_path
+
+    stem = dest_path.stem
+    suffix = dest_path.suffix
+    counter = 1
+    while dest_path.exists():
+        dest_path = dest_path.with_name(f"{stem}_{counter}{suffix}")
+        counter += 1
+    return dest_path
+
+
 @dataclass
 class RouteResult:
     """Result of routing an item."""
@@ -229,14 +243,7 @@ class Router:
         else:
             dest_path = dest_dir / source_path.name
 
-        # Handle name collision
-        if dest_path.exists():
-            stem = dest_path.stem
-            suffix = dest_path.suffix
-            counter = 1
-            while dest_path.exists():
-                dest_path = dest_dir / f"{stem}_{counter}{suffix}"
-                counter += 1
+        dest_path = _unique_destination_path(dest_path)
 
         shutil.move(str(source_path), str(dest_path))
         logger.info("Routed %s → %s (%s)", source_path.name, dest_path, route_name)
@@ -265,19 +272,10 @@ class Router:
                 message="No URL configured for webhook route",
             )
 
+        item_data = self._build_webhook_payload(source_path, route_name, classification)
+
         try:
             from arkiv_webhook import send_webhook
-
-            item_data = {
-                "payload_version": 1,
-                "original_path": str(source_path),
-                "category": classification.category,
-                "confidence": classification.confidence,
-                "summary": classification.summary,
-                "tags": classification.tags,
-                "language": classification.language,
-                "route_name": route_name,
-            }
 
             success = send_webhook(route_config.url, item_data)
             if success:
@@ -307,16 +305,6 @@ class Router:
                 "Install with: pip install arkiv-webhook",
                 route_name,
             )
-            item_data = {
-                "payload_version": 1,
-                "original_path": str(source_path),
-                "category": classification.category,
-                "confidence": classification.confidence,
-                "summary": classification.summary,
-                "tags": classification.tags,
-                "language": classification.language,
-                "route_name": route_name,
-            }
             self._enqueue_failed_webhook(
                 item_id=item_id,
                 route_name=route_name,
@@ -330,6 +318,24 @@ class Router:
                 success=False,
                 message="arkiv-webhook plugin not installed",
             )
+
+    def _build_webhook_payload(
+        self,
+        source_path: Path,
+        route_name: str,
+        classification: Classification,
+    ) -> dict[str, object]:
+        """Build the versioned payload stored in outbox and sent to webhook plugins."""
+        return {
+            "payload_version": 1,
+            "original_path": str(source_path),
+            "category": classification.category,
+            "confidence": classification.confidence,
+            "summary": classification.summary,
+            "tags": classification.tags,
+            "language": classification.language,
+            "route_name": route_name,
+        }
 
     def _enqueue_failed_webhook(
         self,
@@ -354,15 +360,7 @@ class Router:
     def _route_to_review(self, source_path: Path, classification: Classification) -> RouteResult:
         """Route to review directory when no route matches."""
         self.review_dir.mkdir(parents=True, exist_ok=True)
-        dest_path = self.review_dir / source_path.name
-
-        if dest_path.exists():
-            stem = dest_path.stem
-            suffix = dest_path.suffix
-            counter = 1
-            while dest_path.exists():
-                dest_path = self.review_dir / f"{stem}_{counter}{suffix}"
-                counter += 1
+        dest_path = _unique_destination_path(self.review_dir / source_path.name)
 
         shutil.move(str(source_path), str(dest_path))
         logger.info(
